@@ -148,4 +148,6 @@ format =
 
 .
 
+Mark Pruett received a Masters Degree in Computer Science from Virginia Commonwealth University. He has been programming for the past 18 years. Mark currently works for Dominion Virginia Power. He can be reached at mpruett@mediaone.net.
+
 archived from http://www.drdobbs.com/rdb-a-unix-command-line-database/199101326 on 2018-01-2019
