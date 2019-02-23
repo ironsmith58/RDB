@@ -1,0 +1,119 @@
+#! /usr/bin/perl
+$RCS_ID = '$Id: summ,v 2.6 1994/11/05 12:18:40 hobbs Exp $' ;
+$0 =~ s-.*/-- ;
+$HelpInfo = <<EOH ;
+
+	    RDB operator: $0
+
+Usage:  $0  [options]  [column ...]
+
+Options:
+    -cu      A Count of the unique values for each column given.
+    -cun     Like option '-cu' but also shows counts of null (empty) and
+	     blank values (have only space chars), if either exist.
+    -cuu     A Count of each unique value for each column given.
+    -cu2     Like option '-cuu' but shows only counts greater than one.
+    -help    Print this help info.
+    -m       The min, average, max, total for each column given.
+    -v	     Inverse option. Selects all columns except those named.
+
+Produces "summary" information about the rdbtable. If no columns are given
+then information about all columns is produced.  A Count of the data rows
+is always shown.
+
+This operator reads an rdbtable via STDIN and writes a summary report via
+STDOUT.  Options may be abbreviated.
+
+$RCS_ID
+EOH
+while ( $ARGV[0] =~ /^-/ ) {				# Get args
+    $_ = shift ;
+    if( /-c(.*)/ ){
+	$v = $1 ;
+	if( $v =~ /^u/ ){ $CUNIQ++ ; $SAV++ ; }
+	if( $v =~ /^un/ ){ $CUNUL++ ; }
+	if( $v =~ /^uu/ ){ $CUQBY++ ; }
+	if( $v =~ /^u2/ ){ $CUQBY++ ; $CU2++ ; }
+	next ; }
+    if( /^-h.*/ ){ print $HelpInfo ; exit 1 ; }
+    if( /-m(.*)/ ){ $MAM++ ; $SAV++ ; next ; }
+    if( /^-v.*/ ){ $INV++ ; next ; }
+    die "\nBad arg: $_\n", "For help type \"$0 -help\".\n" ; 
+}
+while(<STDIN>){
+    next if /^\s*#/ ;			# comment
+    chop ;
+    @F = split( /\t/, $_ );
+    if( ++$lln < 3 ){
+	if( $lln == 1 ){			# col name line
+	    @H = @F ; # save headers
+	    @ARGV = @H if ! @ARGV && ! $INV ;
+	    &get_col_x ; }		# get, chk column indexes.
+	next ; }
+    $rows++ ;				# data row count
+    if( $SAV ){
+	for (@a){
+	    $x = "$_|$F[$_]" ;
+	    if( ! $q{$x} ){ $cu[$_]++ ; }	# unique count
+	    $q{$x}++ ;				# value count
+	}
+    }
+}
+print "Rows: $rows\n" ;
+if( $CUNIQ ){				# count of unique stuff
+    for (@a){
+	print "Unique values for $H[$_]: $cu[$_]\n" ;
+	next if ! $CUQBY && ! $CUNUL ;
+	for $k ( sort( keys %q )){
+	    @t = split( /\|/, $k );
+	    if( $t[0] eq $_ ){
+		if( $t[1] eq "" ){ $t[1] = "(null)" ; }
+		if( $t[1] =~ /^\s+$/ ){ $t[1] = "(blank)" ; }
+		if( $CUNUL ){
+		    last if $t[1] ne "(null)" && $t[1] ne "(blank)" ; }
+		if( $CU2 ){
+		    next unless $q{$k} > 1 ; }
+		printf( "%8d %s\n", $q{$k}, $t[1] ) ;
+	    }
+	}
+    }
+}
+if( $MAM ){				# min, avg, max 
+    for (@a){
+	$n = $sum = $max = 0 ;
+	$min = 2e31 -1 ;
+	for $k ( sort( keys %q )){
+	    @t = split( /\|/, $k );
+	    if( $t[0] eq $_ ){
+		$sum += $t[1] * $q{$k} ;
+		$n += $q{$k} ;
+		$min = $t[1] if $t[1] < $min ;
+		$max = $t[1] if $t[1] > $max ;
+	    }
+	}
+	$avg = $sum / $n if $n ;
+	printf( "Min, Avg, Max, Total for %s: %d, %d, %d, %d\n",
+	    $H[$_], $min, $avg, $max, $sum ) ;
+    }
+}
+sub get_col_x {		# get, chk column indexes, inc -v, die if bad column
+			# uses @H, $INV, put indexes in @a.
+			# modified for summ.
+    local( $f, $ok, @nn ) ;
+    for $arg (@ARGV){
+	for( $ok=$f=0 ; $f < @H ; $f++ ){
+	    if( $arg eq $H[$f] ){	# match existing column
+		$ok++ ;
+		push( @a, $f );
+		last ; }
+	}
+	die "\n$0: Bad column name: $arg\n" if ! $ok ;
+    }
+    if( $INV ){					# inverse option
+	loop: for( $f=0 ; $f < @H ; $f++ ){
+	    for $i (@a){
+		next loop if $i eq $f ; }
+	    push( @nn, $f ); }
+	@a = @nn ;
+    }
+}

@@ -1,0 +1,106 @@
+#! /usr/bin/perl
+$RCS_ID = '$Id: row,v 2.9 1995/02/14 14:48:36 hobbs Exp $' ;
+$0 =~ s-.*/-- ;
+$HelpInfo = <<EOH ;
+
+	    RDB operator: $0
+
+Usage:  $0  [options]  [expression]
+
+Options:
+    -help    Print this help info.
+    -fXXX    The expression is in the file 'XXX', instead of on the 
+	     command line. The advantage in this case is that no quoting
+	     of chars that might be special to the UNIX shell is necessary.
+
+Selects rows from the input rdbtable that satisify an arbitrary expression
+using column names.  Chars that are special to the UNIX shell must be quoted.
+
+Comparsion operators may be of the form: gt, ge, lt, le, eq, ne, mat, nmat.
+The last two are for pattern matching, and pattern not matching.
+E.g 'name eq Hobbs' or 'name mat /obbs/'.  Logical constructors 'or' and
+'and' may be used; as well as 'null' to indicate an empty data value.
+The value 'any' will match any column name.
+
+All of the Comparsion operators and Logical constructors are reserved and
+should not be used as column names (they are all lower case and four
+chars or less).
+
+This operator reads an rdbtable via STDIN and writes an rdbtable via STDOUT.
+Options may be abbreviated.
+
+$RCS_ID
+EOH
+%cmpop = ( "lt", "<", "le", "<=", "gt", ">", "ge", ">=", # cmp opers
+	   "eq", "==", "ne", "!=", 'mat', '=~', 'nmat', '!~'  ) ;
+%resw  = ( "or", "||", "and", "&&", "null", "\"\"", "any", '$_' ) ;# reserved
+while ( $ARGV[0] =~ /^-/ ){				# Get args
+    $_ = shift ;
+    if( /-f(\S+)/ ){ $FEXP = $1 ; next ; }
+    if( /^-h.*/ ){ print $HelpInfo ; exit 1 ; }
+    if( /-x.*/ ){ $XBUG = 1 ; next ; }
+    die "\nBad arg: $_\n", "For help type \"$0 -help\".\n" ; 
+}
+$lln = 0 ; # for perl5 on Solaras 2.3
+while(<STDIN>){
+    print ;
+    if( /^\s*#/ ){				# comment 
+	next ; }
+    chop ;
+    @F = split( /\t/, $_ );
+    if( ++$lln == 1 ){				# col name line
+	@H = @F ; # save headers
+	next ; }
+    if( $lln == 2 ){				# define line
+	if( $FEXP ){			# exp from file
+	    open( FEXP ) || die "\nCan't open input: $FEXP\n" ;
+	    while( <FEXP> ){
+		s/(^|\s+)#.*$// ;		# skip comments
+		$x .= $_ ; }
+	    @ARGV = split( ' ', $x ) ; }
+	aa: for $arg ( @ARGV ){
+	    for( $f=0 ; $f <= $#H ; $f++ ){
+		if( $arg eq $H[$f] ){			# col name trans
+		    $arg = '$F[' . $f . ']' ;
+		    if( $F[$f] =~ /(\S+)/i && $1 =~ /N/i ){
+			$numf = 1 ; } # num data flag, for next cycle
+		    $poper = "COL" ;
+		    $pcol = $H[$f] ; # prev col name
+		    next aa ; } }
+	    if( $cmpop{$arg} ){				# cmp oper
+		$poper = "CMP" ;# prev oper, for next cycle
+		if( $arg =~ /mat$/ ){ # match oper
+		    $poper = "CMPM" ;
+		    if( $numf ){
+			warn "\n$0: Warning, Pattern Match on numeric",
+			    " column ($pcol)\n" ; } }
+		if( $numf || $poper eq 'CMPM' ){
+		    $arg = $cmpop{$arg} ; } # oper trans
+		$numf = "" ;
+		next aa ;  }
+	    $numf = "" ;
+	    if( $resw{$arg} ){				# reserved word 
+		$arg = $resw{$arg} ;
+		$poper = "RES" ;
+		next aa ; }
+	    next aa if $poper !~ /^CMP/ ;
+	    $arg = '"' . $arg . '"' if $poper ne 'CMPM' ;# data value, quote
+	    $poper = "VAL" ;
+	    next aa ;
+	}
+	$exp = join( ' ', @ARGV ) ;
+	if( ! $exp ){ die "\nNo expression given.\n\n" ; }
+	$prog = <<EOP ;
+	while(<STDIN>){
+	    chop ;
+	    \@F = split( /\\t/, \$_ );
+	    if( $exp ){
+		print \$_, "\\n" ; }
+	}
+EOP
+	last ;
+    }
+}
+print STDERR $prog, "\n" if $XBUG ;
+eval( $prog ) ;
+print STDERR $@ if $@ ;

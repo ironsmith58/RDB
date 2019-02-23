@@ -1,0 +1,66 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Operators: repair</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H2>repair</H2>
+Usage: <CODE>repair  [options]  file  ...</CODE>
+
+<P>
+     Attempts to repair candidate RDB datafiles, e.g. files that have
+been ported from a MacIntosh or PC (MSDOS computer) in spreadsheet form
+but that do not yet have valid rdbtable structure.  Generates definition
+lines (second line of header). The width of all data values is checked
+and the maximum width for a column is used as the column width in the
+definition line for that Table.
+
+<P>
+     It also works with existing rdbtables ('-exist' option) and is
+convenient for removing leading and trailing space characters from data
+values (-blank option).
+
+<P>
+     Adds fields as necessary to rows (null), or to header (DUM1, DUM2,
+...) to make the Table structure valid.
+
+<P>
+     The new rdbtables will be in the current directory (even if the
+input files are not) and will have the suffix changed (or added) to
+'.rdb' by default.
+
+<P>
+     Options may be abbreviated.
+<P>
+Options:
+<UL>
+
+<LI> -blank - Remove leading and trailing blank characters from data fields.
+
+<LI> -dN - Deletes the first N lines of each input file.  Used to
+             remove extra lines before the actual header.
+
+<LI> -exist - The file(s) are existing rdbtables. Instead of generating
+             new definition lines the current ones are used as starting
+             values.
+
+<LI> -Exist - Just like '-exist' except the data width check is not done.
+
+<LI> -help - Print this help information.
+
+<LI> -kWORD - The first line of each input file containing "WORD" will
+             be considered the line containing the column names  Works
+             after the '-d' option, if given.
+
+<LI> -rFILE - Use the template file 'FILE' to replace the existing header.
+
+<LI> -sXXX - Suffix on new files of 'XXX' instead of '.rdb'.
+
+<LI> -tFILE - Use the template file 'FILE' for header and definition data
+             instead of scaning the input files.
+</UL>
+
+
+</BODY>

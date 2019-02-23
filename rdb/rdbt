@@ -1,0 +1,149 @@
+#! /usr/bin/perl
+$RCS_ID = '$Id: rdbt,v 2.1 1993/03/29 13:41:58 hobbs Exp $' ;
+$0 =~ s-.*/-- ;
+@opers = ( row, column, jointbl, sorttbl, ptbl, valid,
+	headchg, mktbl, etbl, summ, compute, reporttbl, repair ) ;
+$infofile = "Info.RDB" ;
+$dot = ".rdb" ;
+$HOME = "/rondo/b/hobbs/rdb/" ;	# where $infofile is
+# $HOME = "/york/c/hobbs/bin/" ;# where $infofile is, york
+$HelpInfo = <<EOH ;
+
+	    RDB Terminal Interface.
+
+Usage:  $0  [options]
+
+Options:
+    -help    Print this help info.
+
+$RCS_ID
+EOH
+while ( $ARGV[0] =~ /^-/ ) {				# Get args
+    $_ = shift ;
+    if( /^-h.*/ ){ print $HelpInfo ; exit 1 ; }
+    die "\nBad arg: $_\n", "For help type \"$0 -help\".\n" ; }
+$|++ ;
+&set_tex ;
+if( open( DOT, $dot ) ){
+    while(<DOT>){
+	chop ; push( @B, $_ ) ; } }
+print $welc0, $welc1 ;
+print "RDB " ;
+main: while(<>){
+    last if /^q/ ;
+    /^(\S+)/ ; $cmd = $1 ;
+    for $x (@opers){
+	if( $x eq $cmd ){			# RDB command
+	    chop ; $buf .= $_ . " " ;
+	    # print "buf: $buf\n" ;
+	    $cmb++ ;		# cmd in working buffer
+	    next main ; } }
+    if( /^(\d+|\-)\s+/ ){			# cmd N to work bufffer
+	if( $1 eq '-' ){ $j = $#B ; }
+	else{ $j = $1-1 ; }
+	print( ($buf = $B[$j]), "\n" ) ; $cmb++ ; next ; }
+    if( /^b\s+(\d*)/ ){				# show buffer list
+	$j=0 ;
+	if( $1 && @B > $1 ){ $j = @B - $1 ; }
+	for($i=$j ; $i <= $#B ; $i++ ){
+	    printf( "%2d %s\n", $i+1, $B[$i] ) ; }
+	next ; }
+    if( /^c\s+/ ){ $buf = "" ; $cmb=0 ; next ; }# clear work buffer
+    if( /^cb\s+(\d*)/ ){			# clear buffer list
+	$j=0 ;
+	if( $1 && @B > $1 ){ $j = @B - $1 ; }
+	splice( @B, 0, $j ) ;
+	$cmb=0 ; next ; }
+    if( /^(go*|n)\s+(\S*)/ ){			# execute work buffer
+	$cmd = $1 ; $wh = $2 ;
+	&do_go ; next ; }
+    if( /^h\S*\s+/ ){ &do_help ; next ; }	# help
+    if( /^s\s+/ ){ print $buf, "\n" ; next ; }	# show work buffer
+    if( $cmb && length($_) > 1 ){		# add to work buffer
+	chop ; $buf .= $_ . " " ; next ; }
+    (/^!/ || /^\;/) && do{
+	s/[!\;]/ / ;
+	if( /^\s*cd\s+(\S*)/ ){
+	    chop ;
+	    chdir( $1 ) || print "Can't cd to $1\n" ; }
+	else{
+	    chop ;
+	    system( $_ ) ; }
+	next ; } ;
+    print "what ???\n" ;			# unknown
+} continue{ print "RDB " ; }
+if( open( DOT, ">$dot" ) ){
+    for (@B){ print DOT $_, "\n" ; } }
+sub do_go {
+    if( $wh ){
+	$j = $wh -1 ;
+	$j = $#B if $wh eq '-' ;
+	$buf = $B[$j] ; }
+    else{
+	push( @B, $buf ) if $buf ; }
+    $buf =~ s/[\(\)]/\\$&/g ;
+    # print $buf, "\n" ;
+    system( "$buf" ) if $cmd ne 'n' ;
+    $buf = "" ;
+    $cmb=0 ;
+}
+sub do_help {
+    chop( $arg = $' ) ;
+    if( $arg =~ /^\s*$/ ){
+	print $help1 ;
+	for (@hwds){ print $_, "\n" ; }
+	for (@opers){ print $_, "\n" ; }
+	print $help9 ; }
+    else{
+	$i = 0 ;
+	for $x (@hwds){
+	    if( $x =~ /^$arg/ ){
+		if( $i == 2 ){
+		    open( INF, "$HOME$infofile" ) ||
+			warn "Can't open $HOME$infofile\n" ;
+		    print while <INF> ; }
+		else{ print $htex[$i] ; }
+		return ; }
+	    $i++ ; }
+	for $x (@opers){
+	    if( $x =~ /^$arg/ ){
+		print `$x -help` ;
+		return ; } }
+	print "help what ???\n" ; }
+}
+sub set_tex {
+$welc0 = "\nWelcome to the RDB Terminal Interface.\n" ;
+$welc1 = "For help enter \"help\" or \"h\"; to quit enter \"quit\" or \"q\"\n";
+$user1 = <<EOU ;
+Enter User Interface or RDB operator commands.  RDB operator commands are
+built in a "working buffer" and then executed by the Interface cmd 'go'.
+They are then saved on a "buffer list".
+
+N	copy contents of buffer N to working buffer, '-' is latest.
+b	show buffer list
+b  N	show latest N buffers on list
+c	clear working buffer
+cb	clear buffer list
+cb  N	clear buffer list, except for latest N.
+e	edit contents of working buffer. (NOT IMPLEMENTED YET)
+e  N	edit contents of buffer N. (NOT IMPLEMENTED YET)
+h	help, general
+h  XXX	help for item XXX
+g	(or 'go') execute command in working buffer
+g  N	execute command in buffer N, '-' is latest.
+n	no execution, just check, put on buffer list.
+s	show working buffer
+q	quit
+!cmd	(or ';cmd') execute UNIX command.
+EOU
+$user2 = <<EOU ;
+Reserved words: eq, ne, gt, ge, lt, le, and, or, null.
+Interface commands: (digit), b, c, cb, e, h, g, n, s, q, !.
+EOU
+$help1 = 
+"For more details enter \"help item\" where \"item\" is one of\n" .
+"    (or a unique leading subset of):\n";
+$help9 = "\nTo quit enter  \"quit <RET>\"\n" ;
+@hwds = ( "user interface", "reserved words/cmds", informtion ) ;
+@htex = ( $user1, $user2, "get info..." ) ;
+}

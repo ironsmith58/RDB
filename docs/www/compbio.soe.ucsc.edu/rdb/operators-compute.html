@@ -1,0 +1,136 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Operators: compute</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H2>compute</H2>
+Usage: <CODE>compute  [options]  [statements]</CODE>
+<P>
+     Computes values for data fields based on arbitrary statements using
+column names. Any characters that are special to the UNIX shell must be
+quoted.
+
+<P>
+     Comparison operators may be of the form: gt, ge, lt, le, eq, ne.
+For example 'NAME  eq  Hobbs'.  Logical constructors 'or' and 'and' may
+be used; as well as 'null' to indicate an empty data value.  The
+supplied statements may be essentially any valid PERL statements.
+
+<P>
+     All of the Comparison operators and Logical constructors are
+reserved and should not be used as column names (they are all lower case
+and four characters or less).
+
+<P>
+<P>
+Options:
+<UL>
+<LI> -help - Print this help information.
+
+<LI> -fXXX - The statements are in the file 'XXX', instead of on the
+             command line. The advantage in this case is that no quoting
+             of characters that might be special to the UNIX shell is
+             necessary.
+</UL>
+
+<P>
+     This operator reads a rdbtable via STDIN and writes a rdbtable via
+STDOUT.  Options may be abbreviated.
+
+<P>
+     If a file is used to contain the statements any line in the file
+that starts with a sharp sign (#) is treated as a comment and ignored.
+Also if there is a sharp sign preceded by a space character anywhere on
+the line the rest of the line is also treated as a comment.
+
+<P>
+     Since column names and reserved words are parsed by the program, do
+not put the entire expression in a single pair of quotes as that will
+prevent the parsing.  Also note that column names and reserved words
+need to be surrounded by blank spaces if they are not individually
+quoted.  For example either form below is fine:
+
+<PRE>
+        row   NAME    eq   "L Brown"  &lt;  sample
+
+        row  "NAME"  "eq"  "L Brown"  &lt;  sample
+</PRE>
+
+but do not use this form:
+
+<PRE>
+        row  "NAME  eq  L Brown"  &lt;  sample
+</PRE>
+
+Example rdbtable (named cfile):
+
+<PRE>
+        name    count   type    amt
+        6       5N      4       5N
+        Bush    3       A       133
+        Hansen  39      A       23
+        Newton  8       E       8
+        Hobbs   42      B       144
+        Hart    2       C       55
+        Jones   4       B       244
+        Smith   5       D       1111
+</PRE>
+
+The command:
+<PRE>
+        compute  count  +=  100  if  type  lt  D  &lt;  cfile  |  ptbl
+</PRE>
+
+gives the output:
+
+<PRE>
+        name    count  type    amt
+        ------  -----  ----  -----
+        Bush      103  A       133
+        Hansen    139  A        23
+        Newton      8  E         8
+        Hobbs     142  B       144
+        Hart      102  C        55
+        Jones     104  B       244
+        Smith       5  D      1111
+</PRE>
+
+Example file of commands named 'XXX':
+
+<PRE>
+        if( type eq A ){
+            name = NEW ;
+            amt = count * 2 ;
+            type = 'AAA' ;
+        }
+        else{
+            name = OLD ;
+            amt = count + 1000 ;
+            type = 'ZZZ' ;
+        }
+</PRE>
+
+Output from command:
+
+<PRE>
+        compute  -fXXX  &lt;  cfile  |  ptbl
+</PRE>
+
+would be:
+
+<PRE>
+        name    count  type    amt
+        ------  -----  ----  -----
+        NEW         3  AAA       6
+        NEW        39  AAA      78
+        OLD         8  ZZZ    1008
+        OLD        42  ZZZ    1042
+        OLD         2  ZZZ    1002
+        OLD         4  ZZZ    1004
+        OLD         5  ZZZ    1005
+</PRE>
+
+</BODY>

@@ -1,0 +1,91 @@
+To: 
+cc: hobbs@rand.org
+Subject: New RDB module: RDB Interactive (rdbi)
+Reply-to: hobbs@rand.org
+
+There is now an interactive analysis tool for RDB data tables (rdbtables)
+called 'rdbi'. It is especially useful for rdbtables that were made from
+spreadsheet data or outside sources of unknown content. Spreadsheet data
+files are easily converted via 'repair -b spreadsheet_file'.
+
+====>  NOTE, if you don't know what RDB is see the end of messge.  <=====
+
+It basically utilizes other RDB modules (column, etbl, ptbl, reporttbl, row,
+sorttbl, tbl2lst, summ, valid) to present a simple interface so one can
+analyze and/or modify, or make new versions, of an rdbtable quickly.
+
+The header information of a given rdbtable will be shown, which includes any
+header comment lines, each column number, column name, and any column
+documentation that may exist.
+
+The rdbtable may be printed in column mode, in list mode (like that used by
+etbl) or formatted (if a template file is available).
+
+Online help is available at any time.
+
+The use of a pager (LESS by default) is included which may be turned on or
+off as needed.
+
+Such actions as limiting or re-arranging columns, sorting by columns, or
+selecting rows based on an expression are done with simple commands. Column
+names or column NUMBERS may be used in several commands, to save typing. In
+these cases temporary copies of the modified rdbtable are made, which may be
+saved if desired; otherwise they are removed when the program is exited.
+
+The summary information command (summ module output) shows the detailed
+makeup of the columns and has proven to be very useful.
+
+Commands to execute RDB modules that are not built into the interface, as
+well as arbitrary UNIX commands, may be executed at any time via an escape
+mechanism.
+
+For more detail on the interactive commands for rdbi use 'rdbi -help'.
+
+I like 'rdbi' much better than the old RDB Terminal Interface module 'rdb'
+(which has been renamed to 'rdbt').
+
+The tool 'rdbi' is available as a separate file, via anon ftp (this is
+the primary RDB location) from:
+
+    ftp://ftp.rand.org/pub/RDB-hobbs/
+
+    file name:  rdbi
+
+Walt Hobbs
+
+PS My RDB mail list is way out of date; many bad returns. If you want 
+to be on my RDB mail list (for occasional notices) please let me know.
+
+......................................................................
+What RDB is:
+
+RDB is a fast, portable, Relational DataBase Management System without
+arbitary limits, (other than memory and processor speed).
+
+RDB uses the 'operator/stream' DBMS paradigm described in Unix Review,
+March, 1991, page 24, entitled A 4GL Language.  The operators are UNIX
+filters, i.e. they read STDIN and write STDOUT so they can be connected
+by pipes (the '|' char).
+
+The operators work with relational data in ascii files.  The fields in
+each row are separated by a 'TAB' char and the row is terminated with
+a 'NEWLINE' char.  The first section of rows (the header) contains the
+names and data definitions for each column.  The header also contains
+optional embedded documentation relating to the entire datafile and/or
+each data column.  Subsequent rows (the body) contains the data values.
+A file in this form is said to be an 'rdbtable'.  RDB is compliant with
+the Relational Model.
+
+These rdbtables are easily ported to and from spreadsheet programs on
+Macintoshes or MSDOS computers.
+
+All operators read an rdbtable via STDIN and most write a new rdbtable
+via STDOUT. Exceptions are operators that produce output listings instead
+of rdbtables (like 'ptbl' and 'reporttbl').
+
+All operators and utilities take a '-help' option to print usage detail
+and other information online.
+
+There are currently 22 RDB modules (operators and utilities) written
+in PERL.
+......................................................................

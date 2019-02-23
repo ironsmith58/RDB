@@ -1,0 +1,37 @@
+Format and print the man-page 'cterm.1'.
+Follow the instructions in the section on 'Installation'.
+
+Note that on a Sun you will probably want to use the SYSV C compiler
+(/usr/5bin/cc) because it provides a better Curses.
+Set the CC-variable in the Makefile to '/usr/5bin/cc',
+and the LDFLAGS to '-lcurses -ltermcap'.
+When using the standard cc-compiler, I could compile everything properly
+but bsd-curses messed up my screen.
+
+On Ultrix ATT-curses is available in 'cursesX' (instead of 'curses').
+What I did was modify all references to 'curses' in *.mk, *.c and *.h to
+'cursesX'.  I set CFLAGS to '-YPOSIX -DLANGUAGE_C' (note the '-Y')
+and LDFLAGS to '-lcursesX'. It worked.
+
+On a Convex, cbreak (nocbreak) are called crmode (nocrmode).
+Add the definitions 'cbreak(){crmode();}' and 'nocbreak(){nocrmode();}' 
+to 'cursesXt.c' for compatibility.
+
+History:
+1. Posting on Usenet in comp.lang.perl (date ??).
+2. Before posting Jinx on Usenet one bug regarding the setting of
+   the loglevel was removed.
+3. After posting Jinx, problems with arrow keys showed up. Functionality
+   was added to control the key-left and key-right commands of the
+   built-in editor. Also 'cursesX' was renamed to 'cursesXt' because
+   of a name clash with Ultrix's X/open version of 'curses'.
+
+Please mail me (henkp@cs.ruu.nl) about problems encountered during
+installation on other systems.
+
+				===  HenkP  ===
+
+Henk P. Penning, Dept of Computer Science, Utrecht University.
+Padualaan 14, P.O. Box 80.089, 3508 TB Utrecht, The Netherlands.
+Telephone: +31-30-534106
+e-mail   : henkp@cs.ruu.nl (uucp to hp4nl!ruuinf!henkp)

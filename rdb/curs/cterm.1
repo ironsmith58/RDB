@@ -1,0 +1,592 @@
+.TH CTERM 1 "" "Dept of Comp Sci, RUU" cterm.2.1
+.SH NAME
+cterm, cterm.pl \- curses terminal emulation (for perl)
+.SH SYNOPSIS
+.B cterm
+.I in out
+[
+.I options
+] [
+.I logfile
+[
+.I loglevel
+] ]
+
+.B cterm.pl
+.SH DESCRIPTION
+.PP
+.B Cterm
+emulates a curses terminal.
+On filedescriptor
+.I in
+it expects curses functions+arguments in the format described below.
+On filedescriptor
+.IR out,
+some functions (like getch()) pass back results.
+Cterm should only be forked by other programs after the proper pipes have
+been set up.
+
+There are currently no documented
+.I options
+(see also the section on undocumented features).
+
+As optional arguments to cterm, the name of a
+.I logfile
+and a
+.I loglevel
+may be specified.
+Loglevel 0 only logs strings provided by the application through
+the curses extension
+.BR ctermlog(str) .
+Loglevel 1 logs all curses functions, arguments and results
+handled by cterm.
+Loglevel 2 shows even more intestines.
+Default is loglevel 0.
+
+Cterm exits in a controlled fashion when it receives signal SIGINT or SIGPIPE.
+
+.B Cterm.pl
+is a library of perl subroutines that provides easy interaction with cterm.
+Cterm.pl defines perl-counterparts for almost all curses functions,
+tables with curses defined constants,
+and subroutines for starting and finishing cterm.
+
+.SH Communication between cterm.pl and cterm
+
+The cterm.pl subroutine
+.B &startCterm()
+sets up two (pair of) pipes, forks and execs cterm.
+In the parent (perl application) STDIN and STDOUT are redirected to the pipes.
+In the child (cterm) the pipes are connected to filedescriptors
+.I out
+and
+.IR in .
+Subroutine
+.B &finishCterm()
+finishes cterm and restores STDIN and STDOUT again.
+
+For the pupose of communication between cterm.pl and cterm,
+each curses function supported in the interface is given a number.
+A curses routine in cterm.pl prints this number on STDOUT
+followed by its parameters.
+Function numbers and parameters are separated by character 034
+(ASCII FS), the default value for
+.BR $; .
+When results are required they are read in from STDIN and
+returned to the caller.
+Cterm reads the numbers from
+.I in
+and calls appropriate functions which in turn read arguments from
+.I in
+and perform the required curses functions.
+Results are written to
+.IR out ,
+each on a new line.
+
+Cterm always flushes
+.I out
+after writing results to it.
+Cterm.pl can be used with $|=0 in applications.
+All curses subroutines in cterm.pl that need to return results,
+flush STDOUT before reading the results from STDIN.
+This implies for instance that the screen always gets up to date
+when user input is requested.
+A curses extension
+.B frefresh
+(flush/refresh) does a normal refresh but also flushes STDOUT when
+.B $flushOn
+is set.
+If you always use frefresh you can set $flushOn in parts
+of the application where you are willing to pay the price for
+a higher flush-rate in order to get a more accurate presentation.
+With subroutine
+.B &curFlush()
+the user can actively flush STDOUT.
+
+In order to access curses defined constants, cterm.pl defines two tables:
+.B %curcon
+and
+.BR %curkey .
+Associative array %curcon contains entries like
+('KEY_UP',259) and ('A_BLINK',1024),
+so curses constants (as strings) map to their value.
+Associative array %curkey contains the inverse of %curcon
+restricted to KEY-codes.
+So, for example, $curkey{259} = 'KEY_UP' if $curcon{'KEY_UP'} = 259.
+The contents of %curcon and %curkey differ from system to system.
+They are created during installation.
+The KEY-associations (KEY_TAB,9) and (KEY_RET,13) are always defined.
+
+Variables
+.BR $LINES ,
+.BR $COLS ,
+.B $stdscr
+and
+.B $curscr
+are set by &initscr.
+
+.SH Arguments and results, representation
+
+Like in curses, in cterm.pl characters are really integers.
+So, for instance,
+.B &addch(c)
+should be provided with an integer and
+.B &getch
+supplies one.
+
+Windows are really pointers in curses.
+Since mixing pointers and integers is potentially dangerous
+(espcially printing and reading them in again)
+an indirection is introduced.
+Cterm stores the result of curses functions returning windows
+in a table and returns the index in the table to cterm.pl.
+When curses returns window NULL, cterm returns -1.
+Subroutine
+.B &delwin(win)
+deletes the window and the entry in the table.
+Subroutine
+.B &initscr
+clears the table and sets variables
+.B $stdscr
+and
+.BR $curscr.
+
+String arguments are printed on STDOUT as they are handed to cterm.pl.
+Things break if a string contains character 034 (ASCII FS)
+because cterm will get out of sync.
+No mechanism was implemented to check and/or repair synchronization.
+
+Curses subroutines in cterm.pl return values by result
+and not by modifying parameters.
+The 'return-parameters' may be omitted in the call.
+This implies that for instance
+.B getyx
+should be called like '($a,$b) = &getyx($win)',
+although in C one would write 'getyx(win,a,b)'.
+The same holds for the
+.B getstr
+function family.
+
+Curses subroutines in cterm.pl don't check their parameters,
+they just pass 'em on.
+
+.SH Using cterm
+
+Cterm is started up with
+.B &startCterm()
+and finished with 
+.BR &finishCterm .
+In addition to proper values for
+.I in
+and
+.IR out ,
+all arguments of startCterm are passed as arguments to the exec'ed cterm.
+So, if cterm logging is required, the name of the logfile
+should be passed as an argument to startCterm.
+If cterm should log internals too, an integer loglevel greater than 0
+should be passed as well.
+Variable
+.B $ctermPid
+holds the pid of the forked cterm process.
+Since cterm only performs curses calls, one usually has to go through
+the customary proceedings: &initscr ; &nonl ; &cbreak ; &noecho.
+Subroutine endwin() should be called before finishing cterm.
+.br
+If the perl application does not call finishCterm before exit'ing,
+as in the case of a runtime error, cterm can't reset the terminal
+and hangs.
+This is a nuisance.
+When
+.B &safeCterm
+is called before &startCterm, cterm will be exec'ed in the parent process.
+This has the advantage that cterm wil always cleanup when the
+perl application suddenly dies.
+The disadvantage is that the application has no control over the terminal
+after &finishCterm because the shell takes over when cterm exits.
+It should be used while developing that part of the application that
+runs between &startCterm and &finishCterm.
+
+Subroutine
+.B ch2str(c)
+takes an integer argument
+.I c
+and, depending on its value,
+returns a string consisting of the correspondig ASCII character,
+or a string like 'KEY_LEFT' or 'KEY_HOME' if
+.I c
+is a KEY-code in curses,
+or the argument otherwise.
+The subroutine
+.B getchint()
+is defined as
+.BR ch2str(&getch()) .
+The KEY-associations (KEY_TAB,9) and (KEY_RET,13) are always defined.
+
+Subroutine
+.B clrreg(top,bot)
+clears the screen from lines
+.I top
+to
+.IR bot .
+Subroutine
+.B wclrreg(win,top,bot)
+clears window
+.I win
+from
+.I top
+to
+.IR bot .
+
+Subroutine
+.B ctermlog(str)
+adds string
+.I str
+to the cterm logfile if one was specified in &startCterm().
+
+Associative array
+.B %curcon
+maps curses constants (as strings) to their (integer) values.
+The contents of %curcon is determined by the installer.
+
+Associative array
+.B %curkey
+maps curses KEY-codes (as strings) to their integer values.
+It is the inverse of %curcon restricted to keys matching /^KEY/.
+The contents of %curkey is determined by the installer.
+
+Associative array
+.B %curfun
+maps curses functions (as strings) in the cterm interface
+to a string listing their parameters and results (if any).
+Table %curfun can be used to determine if a curses function is available.
+The installer determines which functions are supported in the interface.
+
+Function
+.B edit(str,curpos,y,x,xlen,rep)
+returns
+.B (str,quitkey)
+and constitutes a local edit mode of cterm.
+The subroutine allows one to edit a string (initially
+.IR str ).
+It shows (part of) the string in an edit window
+in line
+.I y
+using
+.I xlen
+columns, starting from column
+.IR x .
+The initial cursor position in
+.I str
+is
+.IR curpos .
+Edit-mode is left and the resulting string returned to the caller
+when a 'special' is typed in.
+The set of 'special' characters can be specified as follows.
+Function
+.B editreset()
+clears the set.
+Function
+.B editq(chint)
+adds a character (supply an int) to the set.
+The 'special' character (really an int)
+which caused edit() to leave is returned to the caller too.
+.br
+Edit facilities are limited.
+Arrow-left and arrow-right should work if keypad is enabled.
+With the functions
+.B editl
+and
+.B editr
+(described below) keys can be designated as alternatives for
+arrow-left and arrow-right.
+Typing in 'Kill' (as defined by curses killchar())
+will delete the character pointed to by the cursor.
+Typing in 'Erase' (as defined by curses erasechar())
+will delete the character left of the cursor.
+When the cursor points to the first character in
+.I str
+and 'Erase' is typed in, 
+.I str
+will be swapped with an initially empty save-buffer.
+It can be used to present a user with a default wich he/she
+can edit or discard by typing 'Erase'.
+Printable ASCII characters are inserted.
+All others are rejected.
+.br
+Argument
+.I rep
+must be a string of four characters.
+They are used by edit to indicate which part of
+.I str
+is shown on the screen.
+One of the first two characters in
+.I rep
+is shown in the first column of the edit window.
+One of the last two characters in
+.I rep
+is shown in the last column of the edit window.
+Edit can only use
+.I xlen-2
+columns to present (part of)
+.IR str .
+For the sake of simplicity, let us assume that
+.IR rep ='[<>]'.
+If lenght(\fIstr\fP)<=\fIxlen-2\fP, then
+.I str
+is shown on the screen like '[\fIstr\fP]'.
+If lenght(\fIstr\fP)>\fIxlen-2\fP, then
+only a substring
+.I sub
+of
+.I str
+can be shown on the screen.
+If
+.I sub
+is a prefix of
+.I str
+then it is shown like '[\fIsub\fP>'.
+If it is a suffix it is shown like '<\fIsub\fP]'.
+It is shown like '<\fIsub\fP>' otherwise.
+.br
+The cursor position will be held at the middle of the edit window
+if
+.I sub
+is neither a prefix nor a suffix of
+.IR str .
+.br
+Subroutine
+.B wedit(win,str,curpos,y,x,xlen,rep)
+does edit() in a window.
+
+Subroutine
+.B editreset()
+clears the set of 'special' characters (see edit()).
+
+Subroutine
+.B editq(chint)
+adds a character (supply an int)
+.I chint
+to the set of 'special' characters (see edit()).
+
+Subroutine
+.B editlreset()
+clears the set of characters designated as 'arrow-left' (see edit()).
+Initially the set contains at most one value.
+This is defined by the installer.
+It is available in $curcon{'EDIT_LEFT'}.
+
+Subroutine
+.B editl(chint)
+adds a character (supply an int)
+.I chint
+to the set of 'arrow-left' characters (see edit()).
+
+Subroutine
+.B editrreset()
+clears the set of characters designated as 'arrow-right' (see edit()).
+Initially the set contains at most one value.
+This is defined by the installer.
+It is available in $curcon{'EDIT_RIGHT'}.
+
+Subroutine
+.B editr(chint)
+adds a character (supply an int)
+.I chint
+to the set of 'arrow-right' characters (see edit()).
+
+Subroutine
+.B endwin()
+flushes STDOUT.
+
+Subroutine
+.B frefresh()
+does a refresh.
+STDOUT is flushed if
+.B $flushOn
+is set.
+
+Function
+.B getstr(str)
+should be called like '$str = &getstr',
+mvgetstr(str) should be called like '$str = &mvgetstr($y,$x)',
+and mvwgetstr, wgetstr likewise.
+
+Function
+.B getyx
+should be called like '($a,$b) = &getyx($win)'.
+
+Function
+.B getchR()
+and
+.B wgetchR(win)
+act like getch() but redraw the screen if ^L is entered.
+They do getch's until a non-^L is found.
+
+Subroutine
+.B initscr()
+sets $LINES and $COLS and
+forgets about all windows except stdscr and curscr.
+
+Subroutine
+.B refresh()
+does not flush STDOUT (see also &frefresh()).
+
+Subroutine
+.B show(str,curpos,y,x,xlen,rep)
+shows
+.I str
+on the screen like edit initially would.
+It is handy in applications that are to be independent of the value of COLS.
+.br
+Subroutine
+.B wshow(win,str,curpos,y,x,xlen,rep)
+does show() in a window.
+
+.SH Omissions and limitations
+Implementations of curses differ a lot.
+A few curses functions that are available on some
+systems are not supported in this distribution.
+Some were documented as obsolete, some are meaningless in this application.
+The ones which take a variable number of arguments don't fit
+the interface model and can be done in perl more easily anyway.
+Some are left out because the author was unable to understand what
+they were supposed to do.
+Use %curfun to find out which curses functions are supported in the interface.
+
+Which constants go in %curcon and %curkey is determined by the installer.
+
+As distributed, the size of the window table is 100.
+The size of the set of 'special' characters for edit() is 1000.
+Strings passed to cterm shouldn't be larger than 10K.
+
+.SH Installation
+Edit the 'Makefile' in the source directory.
+Define BINDIR to be a directory were exec usually looks for executables.
+Define PERLLIB to be a directory where perl's do-statement
+looks for libraries to include.
+The Makefile variables EDIT_LEFT, EDIT_RIGHT and BEEP are passed to edit.c.
+They are used in edit().
+When user input equals EDIT_LEFT (EDIT_RIGHT), edit() moves the
+cursor left (right).
+If your curses recognizes arrow-keys, define EDIT_LEFT (EDIT_RIGHT) to
+whatever curses getch() returns if the user types in arrow-left (arrow-right).
+If not, define EDIT_LEFT as 2 (^B for Back)
+and EDIT_RIGHT as 6 (^F for Forward).
+You may also comment them out entirely.
+Note that these settings are only defaults.
+The application can control which characters are to be used as
+EDIT_LEFT and EDIT_RIGHT (see 
+.B editl
+and
+.BR editr).
+.br
+BEEP is the function that is used to signal edit errors to the user.
+Set it to 'beep' (sound bell) if your curses supports it.
+Set it to 'mybeep' if you have nothing better.
+It writes ^G to stderr.
+You may want to change the implementation of 'mybeep' in cursesXt.c.
+Function 'nobeep' is defined and does nothing.
+It is used if you don't define BEEP.
+.br
+If your curses doesn't support
+.B killchar()
+and/or
+.BR erasechar() ,
+implement them in 'cursesXt.c', where you will find an example
+which works on some systems.
+
+Run 'make' to generate the necessary stuff.
+Don't worry about warnings from 'curcon.mk'.
+They simply mean that not all the curses constants suggested
+in 'curcon.in' are available on your system.
+You might want to try the perl programs 'try1' and 'try2' before
+installing.
+Arguments to try1 and try2 are passed to startCterm and thus to cterm.
+
+Running 'make install' will copy the stuff to the designated directories.
+Running 'make clean' will remove temporaries.
+Running 'make realclean' will remove all generated stuff.
+
+The author has tried to make the system adaptable to local conditions.
+There are two files that the installer can modify.
+.br
+The file
+.B cdefs.in
+is the input for cdefs.mk which generates the interface between
+cterm and cterm.pl: cdefs.c and cdefs.pl.
+It contains one line for each curses function which is supported in the
+interface.
+It specifies the name of the function and the parameters that are
+to be passed from cterm.pl to cterm, and in some cases the results
+that are to be passed back.
+If your curses doesn't support some of them, simply comment them
+out ('#' in the first column).
+If there is a problem with something in the 'extensions' or 'extra's',
+please contact the author.
+Create your own minicurses if you think it is all too baroque.
+On a Sun, try to use the SYSV C compiler (/usr/5bin/cc on my sun).
+It provides a better curses.
+The file
+.B cdefs.in.SUN
+contains a severely stripped version of cdefs.in that makes cterm run on
+my standard SunOs.4.0.3 C compiler.
+.br
+The file
+.B curcon.in
+is the input for curcon.mk which generates curcon.c which
+defines the contents of %curcon and %curkey in file curcon.pl.
+Curcon.in is a wishlist.
+Comment out constants that are not defined and add others that are.
+As distributed, 10 function keys are defined in the way they should be
+on some systems.
+
+If you want to add functionality, define more functions in cdefs.in.
+Look at other functions and cdefs.types to see how parameters and results
+are to be specified.
+If you define a function, add an implementation for it in cursesXt.c.
+For an example, look at
+.IR clrreg .
+Function initscr() calls initCursesXt().
+This is the place to put initialisation stuff for curses additions.
+
+.SH "Author's note"
+I developed cterm as part of a perl project called 'jinx'.
+Jinx is a simple, not-quite-relational database system.
+It seemed more practical to have a weak implementation of 'full curses'
+in stead of a strong, tested implementation of an ad hoc subset of curses.
+In jinx I have sofar used only some of the curses facilities.
+The newwin and subwin stuff has not been tried a lot.
+I've never tried to set up a multi-terminal application.
+I want to get it right though, so complaints will be honored.
+.br
+For the future I have a wishlist.
+I would like to also have sockets for communication available.
+I have never used sockets before so I don't see any problems.
+A simple synchronisation mechanism would be easy to implement,
+but I never have problems in that area.
+I guess I don't know how serious the FS-in-strings problem is.
+It should be possible to tell cterm how to handle signals while it runs.
+Cterm should more often be able to reset the terminal.
+.br
+Thanks go to Piet van Oostrum (piet@cs.ruu.nl) for his harsh criticism
+and willingness to discuss technicalities.
+
+.SH Undocumented features
+
+If you supply option
+.BR -X ,
+typing ^X to getchR (and wgetchR) will get you IO statistics in line 0.
+Use it to see how much setting $flushOn or $| are costing you
+in context switches.
+The curses extension quitcterm makes cterm quit.
+It is used by finishCterm.
+
+.SH BUGS
+
+As explained above, arguments of subroutines in cterm.pl
+should never contain ASCII character 034 (FS).
+FS is used as a separator on the info stream from cterm.pl to cterm.
+
+.SH AUTHOR
+Henk P. Penning (henkp@cs.ruu.nl), Department of Computer Science,
+Utrecht University, the Netherlands.

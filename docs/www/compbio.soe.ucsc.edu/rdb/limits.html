@@ -1,0 +1,27 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Limits, A Few Minor Ones</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H1>Limits, A Few Minor Ones</H1>
+
+The following limits apply.
+
+<UL>
+<LI> There must not be any ASCII TAB characters in the data.  This
+         is the primary limit as the ASCII TAB character is the
+         delimiter in rdbtables.
+
+<LI> There must not be any pipe characters `|` used or entered as
+         data when using the operator 'etbl'.
+
+<LI> All of the Compare operators and Logical constructors are
+         reserved and should not be used as column names (they are all
+         lower case and four characters or less).  They are: 'gt', 'ge',
+         'lt', 'le', 'eq', 'ne', 'or', 'and', 'null', 'mat', and 'nmat'.
+</UL>
+
+</BODY>

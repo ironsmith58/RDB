@@ -1,0 +1,183 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: a Relational Database Management System</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+
+<CENTER>
+<H1>RDB: a Relational Database Management System</H1>
+<BR>
+WORKING DRAFT
+<BR>
+Walter V. Hobbs &lt;hobbs@rand.org&gt;
+</CENTER>
+
+<H1>Summary</H1>
+<P>
+     RDB is a fast, portable, relational database management system
+without arbitrary limits, (other than memory and processor speed) that
+runs under, and interacts with, the UNIX Operating system.
+
+<P>
+     It uses the Operator/Stream DBMS paradigm described in "Unix
+Review", March, 1991, page 24, entitled "A 4GL Language".  There are a
+number of "operators" that each perform a unique function on the data.
+The "stream" is suplied by the UNIX Input/Output redirection mechanism.
+Therefore each operator processes some data and then passes it along to
+the next operator via the UNIX pipe function. This is very efficient as
+UNIX pipes are implemented in memory (at least in versions of UNIX at
+RAND).  RDB is compliant with the "Relational Model".
+
+<P>
+     The data is contained in regular UNIX ACSII files, and so can be
+manipulated by regular UNIX utilities, e.g. ls, wc, mv, cp, cat, more,
+less, editors like the RAND editor 'e', head, RCS, etc.
+
+<P>
+     The form of each file of data is that of a relation, or table, with
+rows and columns of information.
+
+<P>
+     To extract information, a file of data is fed to one or more
+"operators" via the UNIX Input/Output redirection mechanism.
+
+<P>
+     There are also programs to generate reports, and to generate,
+modify, and validate the data.
+
+<H1>Documention</H1>
+<UL>
+<LI> <A HREF="preface.html">
+        Preface</A>
+<LI> <A HREF="acknowledgements.html">
+        Acknowledgements</A>
+<LI> <A HREF="introduction.html">
+        Introduction</A>
+<LI> <A HREF="rdbtable.html">
+        Data (RDBtable)</A>
+<LI> <A HREF="operators.html">
+        Operators</A>
+<LI> <A HREF="extracting.html">
+        Extracting Information from RDBTables</A>
+<LI> <A HREF="generating.html">
+        Generating or Modifing RDBTables</A>
+<LI> <A HREF="external.html">
+        Conversion of External Data Into RDBTables</A>
+<LI> <A HREF="access.html">
+        Data Access Control</A>
+<LI> <A HREF="fastaccess.html">
+        Fast Access Methods</A>
+<LI> <A HREF="limits.html">
+        Limits, A Few Minor Ones</A>
+<LI> <A HREF="references.html">
+        References</A>
+<LI> <A HREF="perlexamples.html">
+        Examples of Perl Expressions and Statements</A>
+</UL>
+
+</BODY>
+
+<!--
+
+                                CONTENTS
+
+
+PREFACE  .........................................................   iii
+
+SUMMARY  .........................................................    iv
+
+ACKNOWLEDGEMENTS  ................................................     v
+
+TABLES ...........................................................    ix
+
+Section
+   I.  INTRODUCTION  .............................................     1
+
+  II.  DATA (RDBTABLE)  ..........................................     3
+
+ III.  OPERATORS  ................................................     7
+         COLUMN  .................................................     9
+         COMPUTE  ................................................    10
+         DATAENT  ................................................    13
+         ETBL  ...................................................    15
+         HEADCHG  ................................................    22
+         JOINTBL  ................................................    24
+         LST2TBL  ................................................    27
+         MERGETBL  ...............................................    28
+         MKTBL  ..................................................    29
+         PTBL  ...................................................    30
+         REPAIR  .................................................    36
+         REPORTTBL  ..............................................    38
+         ROW  ....................................................    44
+         SEARCH  .................................................    47
+         SORTTBL  ................................................    48
+         SUBTOTAL  ...............................................    49
+         SUMM  ...................................................    51
+         TBL2LST  ................................................    52
+         UNIQTBL  ................................................    53
+         VALID  ..................................................    54
+
+  IV.  EXTRACTING INFORMATION FROM RDBTABLES  ....................    56
+         General  ................................................    56
+         A Real World Problem  ...................................    57
+         Another Real World Problem  .............................    58
+
+   V.  GENERATING OR MODIFING RDBTABLES  .........................    60
+         Generating new rdbtables  ...............................    60
+         Modifing existing rdbtables  ............................    61
+         Concatenating Rdbtables  ................................    63
+
+  VI.  CONVERSION OF EXTERNAL DATA INTO RDBTABLES  ...............    65
+
+
+
+
+
+ VII.  DATA ACCESS CONTROL  ......................................    67
+         General  ................................................    67
+         Write Concurrency Control  ..............................    67
+
+VIII.  FAST ACCESS METHODS  ......................................    69
+
+  IX.  LIMITS, A FEW MINOR ONES  .................................    70
+
+   X.  REFERENCES  ...............................................    71
+
+Appendix
+   A.  EXAMPLES OF PERL EXPRESSIONS AND STATEMENTS  ..............    72
+
+
+
+
+
+                                 TABLES
+
+
+   1.  Rdbtable (sample) .........................................     6
+   2.  Rdbtable (sample) Actual Content ..........................     6
+   3.  Rdbtable (sample) Ready to Edit, Column Form ..............    18
+   4.  Rdbtable (sample3) Actual Content .........................    19
+   5.  Rdbtable (sample3) Ready to Edit, List Form ...............    21
+   6.  Natural Join of Rdbtables samplej and samplej2 ............    26
+   7.  Master-Detail Join of Rdbtables samplej and samplej2 ......    27
+   8.  Printing Rdbtable (sample) Using ptbl .....................    32
+   9.  Printing Rdbtable (sample) with Page Heading Using ptbl
+       ...........................................................    33
+  10.  Rdbtable with Long Data Values (sample4) Actual Content
+       ...........................................................    33
+  11.  Printing Rdbtable (sample4) with ptbl -trunc Option .......    33
+  12.  Printing Rdbtable (sample4) with ptbl -fold Option ........    34
+  13.  Form File for Rdbtable (sample) ...........................    40
+  14.  Printing Rdbtable (sample) with Reporttbl .................    41
+  15.  Another Form File .........................................    41
+  16.  Form File for Rdbtable (sample2) ..........................    42
+  17.  Printing Rdbtable (sample2) with Reporttbl ................    43
+  18.  Output from the subtotal Operator .........................    51
+  19.  Form File (sum.frm) .......................................    59
+  20.  Database Summary Example ..................................    59
+  21.  PERL Script for Data Conversion ...........................    66
+
+-->

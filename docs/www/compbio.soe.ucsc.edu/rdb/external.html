@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Conversion of External Data Into RDBTables</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H1>Conversion of External Data Into RDBTables</H1>
+
+<P>
+     The best method I have found to convert data in files that were
+received from an external source is to use the PERL Programming
+Language.  A typical PERL script for such a conversion from a file of
+fixed column data is shown in Table 21. The last two lines do most of
+the work.  Note that this process converts the data into an rdbtable
+body only; the rdbtable header must still be generated manually.
+
+<P>
+     The easiest and best way to accomplish the above is to first
+construct a template file from known or observed information in the
+external data file, then generate the header using 'headchg -gen'.  Then
+run the PERL script appending the output to the header file.  Then run
+'valid' to make sure everything went allright.
+
+<PRE>
+                                Table 21
+
+                    PERL SCRIPT FOR DATA CONVERSION
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#! /usr/bin/perl
+$templ = "A6 A12 x A5 x6 A18 A17 x A38 x4 A2 x A x2 A15 x3 A6 A4 x2" .
+    " A2 x4 A5 x A3 A3 A4 x26 A12 A12 A12 A29 x7 A3 A3 x6 A6 A6 A8" .
+    " A4 A3 x3 A3 x3 A8 x10 A2 x4 A12 x138 A6 x66 A24 A36 A12 x6" .
+    " A6 A6 x6 A6 A24 A12 x50 A42 A42 A42 x34 A12 A12 x186 A6" ;
+$0 =~ s-.*/-- ;
+$HelpInfo = &lt;&lt;EOH ;
+Usage:$0  [options]  file
+
+    Strip out and reform an 'external' data file into an rdbtable.
+
+Options:
+ -help - Print this help information.
+
+Strips out the first 46 fields from an 'external' data file and
+reformats it into 'rdbtable' format (TAB delimited with NEWLINE at end).
+Output is on STDOUT.
+EOH
+while ( $ARGV[0] =~ /^-/ ) {                            # Get args
+    $_ = shift ;
+    if( /-h.*/ ){ die $HelpInfo ; }
+    die  "Bad arg: $_\n", $HelpInfo ;
+}
+while(&lt;&gt;){
+    @a = unpack( $templ, $_ );
+    print join( "\t", @a), "\n" ;
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+</PRE>
+
+</BODY>

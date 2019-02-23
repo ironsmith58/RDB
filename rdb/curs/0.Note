@@ -1,0 +1,5 @@
+The file 'cterm' in the directory above is made for a Sun Sparc and should
+(might) work as is. Otherwise it will have to be recompiled using the info
+in this directory.
+
+Walt Hobbs

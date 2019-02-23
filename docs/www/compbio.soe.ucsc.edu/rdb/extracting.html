@@ -1,0 +1,171 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Extracting Information from RDBTables</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H1>Extracting Information from RDBTables</H1>
+
+<H2>GENERAL</H2>
+
+<P>
+     The following shows some examples of how the system is usually
+used, which involves a combinations of operators.  Using the rdbtable
+named 'sample' the command:
+
+<PRE>
+        column NAME OTHER TYP AMT &lt; sample | sorttbl TYP AMT | ptbl
+</PRE>
+
+gives the output:
+
+<PRE>
+        NAME    OTHER     TYP     AMT
+        ------  --------  ----  -----
+        Hansen  One       A        23
+        Bush    Another   A       133
+        Perry   And       B       244
+        Hart    So        D      1111
+        Holmes  On        D      1111
+        Jones   Here      X        77
+</PRE>
+
+Note that columns COUNT and RIGHT were excluded by the 'column' oper,
+and that the order of the selected columns was changed from that in the
+rdbtable.  Of course to save the output in a file, (redirection of
+STDOUT into a file) something like the following is used:
+
+<PRE>
+        column ... &lt; sample | sorttbl ... | ptbl &gt; file.out
+</PRE>
+
+An example using the operator 'row' on the rdbtable sample is:
+
+<PRE>
+        row AMT lt 900 &lt; sample | column NAME AMT TYP RIGHT |\
+        sorttbl l NAME | ptbl
+</PRE>
+
+Note that the '\' character at the end of the first line of the above
+command is the signal to the UNIX shell that the command is continued on
+the next line. Here we select some rows using 'row', select some columns
+using 'column', sort what we have with 'sorttbl', and print with 'ptbl'.
+The output is:
+
+<PRE>
+        NAME      AMT  TYP      RIGHT
+        ------  -----  ----  --------
+        Bush      133  A         This
+        Hansen     23  A           Is
+        Jones      77  X           On
+        Perry     244  B          The
+</PRE>
+
+<H2>A REAL WORLD PROBLEM</H2>
+
+<P>
+     The following shell script shows how the RDB operators and other
+UNIX utilities can be fitted together to solve a real world problem.
+The problem was to find out if the rows in a large rdbtable were unique
+over four columns. Since 'summ' will tell us whether the rows of an
+rdbtable are unique on a single column, we need to construct a temporary
+tdbtable.
+
+<P>
+     To illustrate the solution on a small rdbtable, the script below
+works on an rdbtable like 'sample' but with some rows repeated.  First
+the script selects four columns and adds a dummy column named 'uniq'
+(using 'column').  It then puts the combined values of the four columns
+into the dummy column (using 'compute').  Next it examines the value of
+the dummy column 'uniq' for uniquness (using 'summ') and then uses the
+UNIX command 'egrep' to show only the lines of interest, e.g. those
+lines that start with something other than a '1'.
+
+<PRE>
+        column &lt; table.rdb  Unit  Day  Time  MSN  -a uniq 12 |\
+        compute uniq = Unit . Day . Time . MSN |\
+        summ  -cuu  uniq  |\
+        egrep -v  '^  *1'
+</PRE>
+
+The output was like the following:
+
+<PRE>
+Rows: 9
+
+Unique values for uniq: 6
+       2 Jones77X77
+       3 Perry77B244
+</PRE>
+
+meaning that there were (in this example) two rows that had duplicates
+over the four columns with one set of values, and three rows that had
+duplicate with another set of values.
+
+<H2>ANOTHER REAL WORLD PROBLEM</H2>
+
+<P>
+     This next one is a bit more complicated although very useful, and
+it does demonstrate the use of 'compute' using a newly created column.
+The idea is to make a summary of the data in rdbtable sample3 (from the
+section on 'etbl').  The command is:
+
+<PRE>
+        column name datatype -a nr 2 &lt; sample3 |\
+        compute nr = '++$x' |\
+        sorttbl datatype name | reporttbl sum.frm
+</PRE>
+
+Note that 'column' selects the two columns on which to make the summary
+and adds a new (null) column 'nr'. Then 'compute' puts data into the new
+column by using the PERL expression shown. The expression '++$x' merely
+increments itself by one each time it is evaluated, an easy way to get
+an increasing number. Finally 'sorttbl' sorts the newly created rdbtable
+and it is then printed with 'reporttbl' using the form file 'sum.frm'.
+
+
+<PRE>
+                                Table 19
+
+                          FORM FILE (SUM.FRM)
+
+format top =
+                                              @&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+                                                _date_
+            Sample Three Database Summary by Datatype
+
+       Datatype  Nr  Name
+       --------  --  -----------------------------------------
+.
+format =
+       @&gt;&gt;&gt;&gt;&gt;&gt;&gt;  @&gt;  @&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+       datatype  nr  name
+.
+
+
+                                Table 20
+
+                        DATABASE SUMMARY EXAMPLE
+
+                                              Wed Dec  4 21:23:20 PST 1991
+            Sample Three Database Summary by Datatype
+
+       Datatype  Nr  Name
+       --------  --  -----------------------------------------
+            ABC   5  ABC Duplicate
+            ABC   4  ABC Original
+            ABC   8  LAF-S Air Floating Model
+            ATO   3  ATO (Air Tasking Orders) Original
+            ATO   6  ATO Number 2222-11
+            BDA   1  ACAS (Air Combat Assessment)
+            BDA   2  ACAS (Air Combat Assessment) BDA Sorties
+            BDA   7  BDA Supplement number 17
+</PRE>
+
+
+The form file is shown in Table 19 and the output in Table 20.
+
+
+</BODY>

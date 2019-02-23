@@ -1,0 +1,158 @@
+#! /usr/bin/perl
+$RCS_ID = '\$Id: rdb,v 2.8a 1997/07/16 08:00:00 hobbs Exp $' ;
+$helpinfo = <<'EOF' ;
+
+RDB is a fast, portable, Relational DataBase Management System without
+arbitary limits, (other than memory and processor speed).
+
+RDB uses the 'operator/stream' DBMS paradigm described in "Unix Review",
+March, 1991, page 24, entitled "A 4GL Language".  The operators are UNIX
+filters, i.e. they read STDIN and write STDOUT so they can be connected
+by pipes (the '|' char).
+
+The operators work with relational data in ascii files.  The fields in
+each row are separated by a 'TAB' char and the row is terminated with
+a 'NEWLINE' char.  The first section of rows (the header) contains the
+names and data definitions for each column.  The header also contains
+optional embedded documentation relating to the entire datafile and/or
+each data column.  Subsequent rows (the body) contains the data values.
+A file in this form is said to be an 'rdbtable'.  RDB is compliant with
+the "Relational Model".
+
+The actual data is stored in variable length format, that is, only the
+space necessary for the data is used, as opposed to fixed length data
+fields.  This results in extremely efficient data storage compared to
+most other Database Management Systems.
+
+These rdbtables are easily ported to and from spreadsheet programs on
+Macintoshes or MSDOS computers.
+
+All operators read an rdbtable via STDIN and most write a new rdbtable
+via STDOUT. Exceptions are operators that produce output listings instead
+of rdbtables (like 'ptbl' and 'reporttbl').
+
+All operators and utilities take a '-help' option to print usage detail
+and other information online.
+
+OPERATORS:
+
+row  name  expression  [name  expression]  ... 
+    Selects rows based on arbitrary expressions using column names.
+    Compare operators may be of the form: gt, ge, lt, le, eq, ne, mat, nmat.
+
+column name [name ...] 
+    Selects columns by name, outputs columns in listed order. May
+    produce multiple identical columns if desired.
+
+jointbl rdbtable 
+    Natural join of two rdbtables. Can also do a "Master/Detail"
+    (left outer) join.
+
+sorttbl name 
+    Sorts an rdbtable by one or more columns, each of which may be in
+    ascending or descending order.
+
+ptbl 
+    Formats and prints the headers and data, with multi line
+    records if necessary.  Adapts to current size of window or
+    terminal.
+
+reporttbl file.frm
+    Formats and prints an arbitrary style report, the format of which is
+    specified in "file.frm". A page header may also be specified.
+
+search
+    This operator does a fast search of an rdbtable using a binary search
+    on a key of of one or more columns.
+
+mergetbl
+    This operator merges and/or deletes rows of two rdbtables.
+
+subtotal  B_column  ...  column  ...
+    Lists subtotals of specified column(s) when the value of break
+    columns(s) (B_column) changes.
+
+summ  [name ...]
+    Produces "summary" information on a column basis. Options include:
+    row count, unique value count, min, average, max, total,
+    standard deviation, ...
+
+compute  expression
+    Computes an arbitrary expression using column names.
+
+valid 
+    Verifys that an rdbtable has valid format. Also used to show or generate
+    a header template file complete with all embedded documentation.
+
+headchg  file.tpl
+    Generates and replaces (or removes) the header of an rdbtable.
+
+uniqtbl  column ...
+    Remove duplicate rows considering only the selected columns.
+
+mktbl  file
+    Converts a file with visible column delimiters into an RDB table.
+
+tbl2lst
+    Converts an rdbtable to "list" format. Long data fields are folded.
+
+lst2tbl
+    Converts a file in "list" format to an rdbtable.
+
+UTILITIES: (The utilities do not read STDIN).
+
+rdbi
+    RDB Interactive. An interactive analysis tool. This is especially useful
+    for rdbtables that were made from spreadsheet data. Calls many other
+    modules.
+
+dataent  rdbtable
+    Fullscreen interactive capability with cursor control for entering data
+    into an rdbtable. A line mode is also available.
+
+etbl
+    Uses an editor of choice (like the RAND editor 'e') to edit selected (or
+    all) columns of an rdbtable in either 'list' or 'column' display mode with
+    visible column delimiters.
+
+repair
+    Attempts to repair candidate RDB rdbtables, e.g. files that might have
+    been ported from a Mac or PC but that are not yet valid RDB tables.
+    Also attempts to correct existing RDB rdbtables in bad shape.
+
+rdbt
+    RDB Terminal Interface (old).
+
+DATA TYPE:
+
+The type of data may be "string", "numeric", or "month".  The types are
+specified by an 'S', 'N', or 'M' respectively in the header.  The default is
+type string.
+
+TRIVIAL RDBTABLE (sample):
+
+# Embedded documentation for this rdbtable.
+# Any number of lines may exist.
+# Also available for each column (not shown here).
+NAME	CNT	TYP	AMT
+6     	4N	3	5N
+Hobbs	65	DD	1111
+Bush	4	A	133
+Perry	177	B	244
+Jones	47	XY	77
+Hansen	44	A	23
+
+TRIVIAL RDBTABLE after being processed by the command:
+
+    column < sample NAME TYP AMT CNT | sorttbl TYP AMT | ptbl
+
+NAME    TYP    AMT   CNT
+------  ---  -----  ----
+Hansen  A       23    44
+Bush    A      133     4
+Perry   B      244   177
+Hobbs   DD    1111    65
+Jones   XY      77    47
+EOF
+$helpinfo .= "\n$RCS_ID\n" ;
+system "echo \"$helpinfo\" | less" ;

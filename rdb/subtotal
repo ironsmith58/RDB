@@ -1,0 +1,124 @@
+#! /usr/bin/perl
+$RCS_ID = '$Id: subtotal,v 2.7 1994/11/08 09:01:53 hobbs Exp $' ;
+$0 =~ s-.*/-- ;
+$HelpInfo = <<EOH ;
+
+	    RDB operator: $0
+
+Usage:  $0  [options]  B_column  ...  -st  column  ...
+
+Options:
+    -help    Print this help info.
+    -t       Include totals.
+    -T       Total Only Option. Just do totals on specified columns. In this
+	     case the '-st' flag is not necessary.
+
+Lists subtotals of specified subtotal column(s) (those following the '-st'
+flag) whenever the value of break columns(s) (B_column) changes.
+
+If no break column(s) are given the first column is used; if no sub-total
+columns are given then all columns of type numeric are sub-totaled.
+
+This operator reads an rdbtable via STDIN and writes an rdbtable via STDOUT.
+Options may be abbreviated.
+
+$RCS_ID
+EOH
+while ( $ARGV[0] =~ /^-/ ){				# Get args
+    $_ = shift ;
+    if( /^-h.*/ ){ print $HelpInfo ; exit 1 ; }
+    if( /-s.*/ ){ $xsum++ ; last ; }
+    if( /-t.*/ ){ $TOT++ ; next ; }
+    if( /-T.*/ ){ $TOT++ ; $TONLY++; $xsum++ ; next ; }
+    die "\nBad arg: $_\n", "For help type \"$0 -help\".\n" ; }
+while(<STDIN>){						# get header info
+    if( /^\s*#/ ){			# comment
+	push( @savcom, $_ ) ;
+	next ; }
+    chop ;
+    if( ++$lln == 1 ){
+	@H = split( /\t/, $_ ) ; }	# col names
+    elsif( $lln == 2 ){
+	@F = split( /\t/, $_ ) ; last ; } } # definitions
+while( $arg = shift ){					# build brk, sum arrays
+    if( $arg =~ /^-/ ){
+	$xsum++ ;
+	next ; }
+    for( $ok=$f=0 ; $f <= $#H ; $f++ ){
+	if( $arg eq $H[$f] ){	# match existing column
+	    $ok++ ;
+	    push( @nh, $f ) ;
+	    if( ! $xsum ){
+		push( @Bx, $f ) ; }	# break index
+	    else{
+		push( @Sx, $f ) ; }	# subtot index
+	    last ;
+	}
+    }
+    die "\n$0: Bad column name: $arg\n" if ! $ok ;
+}
+if( ! @Bx && ! $TONLY ){ # no break columns given
+    unshift( @nh, 0 ) ;
+    push( @Bx, 0 ) ; }
+if( ! @Sx ){		# no sub-tot columns given
+    for( $f=0 ; $f <= $#H ; $f++ ){
+	if( $F[$f] =~ /(\S+)/ && $1 =~ /N/i ){	# numeric column
+	    push( @nh, $f ) ;
+	    push( @Sx, $f ) ; } } }
+@n = @nh ;
+print @savcom ;		# print comments
+@D = @H ; &printem ;	# print new col names
+@D = @F ; &printem ;	# print new definitions
+while(<STDIN>){					# read body
+    chop ;
+    @F = split( /\t/, $_ );
+    $dif = 0 ;
+    $x = 0 ;
+    for (@Bx){		# check break columns for diff
+	$F[$_] = ' ' if $F[$_] eq '' ;	# for null case
+	if( $G[$x++] ne $F[$_] ){
+	    $dif++ ;
+	    last ; }
+    }
+    if( $dif && $notfst++ ){
+	print join( "\t", @G ), "\n" ;	# print output array
+	&chk_bl ;
+	for (@G){
+	    $_  = "" ; }	# clear output array
+	if( $bl ){
+	    print join( "\t", @G2 ), "\n" ;
+	    print join( "\t", @G ), "\n" ; # blank line
+	    for (@G2){
+		$_  = "" ; }	# clear 2nd output array
+	}
+    }
+    $x = 0 ;
+    for (@Bx){			# save break columns
+	$G2[$x]    = "" ;	# (preallocate for perl5)
+	$G[$x++]   = $F[$_] ; }
+    for (@Sx){			# sum subtot columns
+	$G[$x]     += $F[$_] ;
+	$T[$x]     += $F[$_] ;	# totals
+	$G2[$x++]  += $F[$_] ; }
+}
+unless( $TONLY ){
+    print join( "\t", @G ), "\n" ;
+    print join( "\t", @G2 ), "\n" if @Bx > 1 ;
+}
+if( $TOT ){
+    $x = @G -1 ;
+    print "\t" x $x, "\n" unless $TONLY ;
+    $T[0] = "Totals" unless $TONLY ;
+    print join( "\t", @T ), "\n" ;
+}
+sub printem {
+    $c = 0 ;
+    for $x (@n) {
+	print "\t" if $c++ > 0 ;
+	print $D[$x] ; }
+    print "\n" if @n ;
+}
+sub chk_bl {			# set $bl if blank line needed
+    $bl = 0 ;
+    if( @Bx > 1 && $G[0] ne $F[$Bx[0]] ){ $bl++ ; }
+}

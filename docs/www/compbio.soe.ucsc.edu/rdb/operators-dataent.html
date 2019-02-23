@@ -1,0 +1,72 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Operators: dataent</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H2>DATAENT</H2>
+Usage: <CODE>dataent  [options]  rdbtable</CODE> <BR>
+   or: <CODE>dataent  [options]  -init  template</CODE>
+
+<P>
+     This utility provides an interactive capability for entering data
+into an rdbtable. The user is prompted by column name for data values.
+Options may be abbreviated.
+
+<P>
+Options:
+<UL>
+<LI> -help - Print this help info.
+
+<LI> -init - Initiate a new rdbtable.
+
+<LI> -nbr - Do NOT remove leading and trailing blank space from data values.
+
+<LI> -prev - Use data values from previous row as defaults for current row.
+</UL>
+
+<P>
+     In the first case of usage above, new rows of data are added at the
+end of an existing rdbtable. In the second case, a template file is used
+to generate a new rdbtable and add rows of data to it.
+
+<P>
+     At each column name prompt the user may enter data followed by a
+&lt;RET&gt; or just a &lt;RET&gt; to retain the current value, which is
+initially null.  Normally leading and trailing blank space is removed from data
+values.  If it is desired to prevent this enter a backslash (\) as the
+first character (the backslash will be removed) or use the '-nbr'
+option.  In order to replace an existing data value with a null value
+enter a backslash (\) and a &lt;RET&gt;.
+
+<P>
+     At any column name prompt, if a single space character is entered,
+followed by a &lt;RET&gt;, control is transferred to the end of row action
+prompt.  This is useful if not all data values need to be entered on all
+rows.  If two space characters followed by a &lt;RET&gt; is entered control is
+transferred to the previous column name prompt.  This is useful if an
+error was made entering data; it can be corrected immediately.
+
+<P>
+     After all the column name prompts for a row have been responded to,
+the user is asked for the next action. The default is to save the
+current row of data to the rdbtable and go on to enter data for the next
+row. Other options available are to go back and check each value of the
+current row; to quit, saving or not saving the current row; to list the
+data values for the entire row; to delete the current row and start a
+new one; to jump back to a specified column name prompt for the current
+row and continue from there; or to produce a help listing.  Also the
+setting of the '-nbr' and '-prev' options may be toggled on or off.
+
+<P>
+     At any time an INTERRUPT signal (^C or DEL) may be entered to abort
+the program.  In this case all rows of data except the current one will
+be saved.
+
+<P>
+     Uses RDB operator: headchg.
+
+
+</BODY>

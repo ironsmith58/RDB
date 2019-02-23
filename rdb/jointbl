@@ -1,0 +1,274 @@
+#! /usr/bin/perl
+$RCS_ID = '$Id: jointbl,v 2.4 1993/03/29 13:34:46 hobbs Exp $' ;
+$0 =~ s-.*/-- ;
+$HelpInfo = <<EOH ;
+
+	    RDB operator: $0
+
+Usage:  $0  [options]  < rdbtable_1  column[=column_2]  ...  rdbtable_2
+
+Options:
+    -c       Do a cartesian (cross-product) join.
+    -help    Print this help info.
+    -md      Do a "Master/Detail" join.  The table from STDIN is the master.
+
+Does a join of two rdbtables on the (Key) column(s) specified.  The default is
+a "natural" join, with optional "Master/Detail" or cartesian (cross-product)
+type joins.
+
+Each item in the list of column name(s) specifys a key column, which may be
+different in the two rdbtables, i.e. '=column_2', if given, refers to a
+name in rdbtable_2 that corresponds to 'column' in rdbtable_1.  If '=column_2'
+is not given it means that the corresponding column name in both rdbtables
+is the same.
+
+If the key column names are different in the two rdbtables, the name of the
+key columns in the output rdbtable will be from rdbtable_1.
+
+Note that the two rdbtables must be sorted on the key columns in order for a
+join operation to function correctly.
+
+The order of columns in the output rdbtable will be: first the key columns,
+then the other columns from rdbtable_1, then the other columns from rdbtable_2.
+
+If both rdbtables contain table documentation (comment) lines then those from
+rdbtable_1 will be first in the output rdbtable.
+
+This operator reads an rdbtable via STDIN and writes an rdbtable via STDOUT.
+Options may be abbreviated.
+
+$RCS_ID
+EOH
+while ( $ARGV[0] =~ /^-/ ) {				# Get args
+    $_ = shift ;
+    if( /-c.*/ ) { $CAR++ ; $MDJ++ ; next ; }
+    if( /^-h.*/ ){ print $HelpInfo ; exit 1 ; }
+    if( /-m.*/ ) { $MDJ++ ; next ; }
+    die "\nBad arg: $_\n", "For help type \"$0 -help\".\n" ; 
+}
+if( @ARGV < 2 ){ die "\n$0: Not enough info.\n",
+    "For help type \"$0 -help\".\n" ; }
+$file2 = pop( @ARGV ) ;
+while ( @ARGV ) {				# Get columns
+    $x = $y = shift ;
+    if( $x =~ /=/ ){
+	$x = $` ;
+	$y = $' ; }
+    push( @cola, $x ) ;
+    push( @colb, $y ) ;
+}
+open( FILE2, $file2 ) || die "\nCan't open $file2\n" ;
+$NA = $NB = 9999 ;	# temp
+while(1){			# read header col names fm rdbtbl_1
+    &geta ;
+    die "\n$0: Invalid header, rdbtable_1\n" if $eof ;
+    last unless $a =~ /^\s*#/ ; 	# comment 
+    print $a, "\n" ;
+}
+while(1){			# read header col names fm rdbtbl_2
+    &getb ;
+    die "\n$0: Invalid header, rdbtable_2\n" if $eof ;
+    last unless $b =~ /^\s*#/ ; 	# comment 
+    print $b, "\n" ;
+}
+&set_key ;
+&println ;
+&geta ; &getb ;			# header, col defns
+die "\n$0: Invalid header\n" if $eof ;
+&println ;
+
+for( $i=0 ; $i < @KA ; $i++ ){			# chk for numeric comparsion
+    $numcmp[$i] = 0 ;
+    if( $F[$KA[$i]] =~ /(\S+)/ && $1 =~ /N/i ){
+	$numcmp[$i] = 1 ; }
+}
+for( $i=0 ; $i < @KB ; $i++ ){
+    if( $G[$KB[$i]] =~ /(\S+)/ && $1 =~ /N/i ){
+	$numcmp[$i] = 1 ; }
+}
+&geta ; &getb ;
+main: while( 1 ){				# main loop
+    if( $eof ){
+	if( ! $eofa && $MDJ ){
+	    until( $eofa ){
+		$aonly++ ; &println ;
+		&geta ; } }
+	if( ! $eofb && $CAR ){
+	    until( $eofb ){
+		$bonly++ ; &println ;
+		&getb ; } }
+	exit ;
+    }
+    while( &cmp_key < 0 ){			# key a < key b
+	if( $MDJ ){ $aonly++ ; &println ; }
+	&geta ; next main if $eofa ; }
+    while( &cmp_key > 0 ){			# key a > key b
+	if( $CAR ){ $bonly++ ; &println ; }
+	&getb ; next main if $eofb ; }
+    next if &cmp_key != 0 ;			# key a != key b
+    &sav_key ;
+    &println ;
+    while( 1 ){			# get rest of equal b lines
+	push( @GG, $b ) ; # save b lines
+	&getb ;
+	if( ! $eofb && &same_b ) {
+	    &println ; }
+	else {
+	    @Gsav = @G ; # save @G
+	    last ; }
+    }
+    while( 1 ){			# get rest of equal a lines
+	&geta ;
+	if( ! $eofa && &same_a ) {
+	    for $b (@GG){
+		@G = split( /\t/, $b, $NB ) ;
+		&println ; } }
+	else {
+	    @GG = () ;
+	    @G = @Gsav ; # restore @G
+	    last ; }
+    }
+}
+sub set_key {				# set the following key items:
+		# $NA, $NB   - nr total cols in line a, b
+		# $NOA, $NOB - nr non-key cols in line a, b
+		# @KA, @KB   - indexes of key cols in line a, b
+		# @OA, @OB   - indexes of non-key cols in line a, b
+    $NA = @F ;
+    $NB = @G ;
+    for $col (@cola){
+	for( $i=0, $hit=0 ; $i < @F ; $i++ ){
+	    if( $col eq $F[$i] ){
+		$hit++ ;
+		push( @KA, $i ) ;	# gen @KA
+		last ; }
+	}
+	die "\n$0: No column match in rdbtable_1: $col\n" if ! $hit ;
+    }
+    for( $i=0 ; $i < @F ; $i++ ){
+	$hit=0 ;
+	for (@KA){
+	    if( $i == $_ ){
+		$hit++ ;
+		last ; }
+	}
+	push( @OA, $i ) if ! $hit ;	# gen @OA
+    }
+    $NOA = @OA ;
+    for $col (@colb){
+	for( $i=0, $hit=0 ; $i < @G ; $i++ ){
+	    if( $col eq $G[$i] ){
+		$hit++ ;
+		push( @KB, $i ) ;	# gen @KB
+		last ; }
+	}
+	die "\n$0: No column match in rdbtable_2: $col\n" if ! $hit ;
+    }
+    for( $i=0 ; $i < @G ; $i++ ){
+	$hit=0 ;
+	for (@KB){
+	    if( $i == $_ ){
+		$hit++ ;
+		last ; }
+	}
+	push( @OB, $i ) if ! $hit ;	# gen @OB
+    }
+    $NOB = @OB ;
+}
+sub cmp_key {		# compares the value of key cols of line a & line b
+			# returns -1, 0, 1 if a<b, a==b, or a>b
+
+    return $cmpval if ! $cmpneed ;	# avoid unnecessary comparsions
+    $cmpneed = 0 ;
+    $cmpval  = 0 ;
+    for( $i=0 ; $i < @KA ; $i++ ){
+	$f = $KA[$i] ;
+	$g = $KB[$i] ;
+	if( $numcmp[$i] ){
+	    if( $F[$f] < $G[$g] ){	# numeric comparsion
+		$cmpval = -1 ;
+		last ; }
+	    if( $F[$f] > $G[$g] ){
+		$cmpval = 1 ;
+		last ; }
+	}
+	else{
+	    if( $F[$f] lt $G[$g] ){	# string comparsion
+		$cmpval = -1 ;
+		last ; }
+	    if( $F[$f] gt $G[$g] ){
+		$cmpval = 1 ;
+		last ; }
+	}
+    }
+    $cmpval ;
+}
+sub println {			# print a line to the output rdbtable
+    if( $bonly ){
+	$x = 0 ;
+	for $_ (@KB){			# key cols from line b
+	    print "\t" if $x++ ;
+	    print $G[$_] ; }
+	print "\t" x $NOA ;		# nulls for line a part
+    }
+    else{
+	$x = 0 ;
+	for $_ (@KA){
+	    print "\t" if $x++ ;
+	    print $F[$_] ; }		# key cols from line a
+	for $_ (@OA){
+	    print "\t" ;
+	    print $F[$_] ; }		# other cols from line a
+    }
+    if( $aonly ){
+	print "\t" x $NOB ;		# nulls for line b part
+    }
+    else{
+	for $_ (@OB){
+	    print "\t" ;
+	    print $G[$_] ; }		# other cols from line b
+    }
+    print "\n" ;
+    $aonly = $bonly = 0 ;
+}
+sub geta {		# read next line from rdbtable_1 into $a & @F
+    $cmpneed++ ;
+    $a = <STDIN> ;
+    if( $a ){
+	chop $a ;
+	@F = split( /\t/, $a, $NA ) ; }
+    else{
+	$eof++ ; $eofa++ ; }
+}
+sub getb {		# read next line from rdbtable_2 into $b & @G
+    $cmpneed++ ;
+    $b = <FILE2> ;
+    if( $b ){
+	chop $b ;
+	@G = split( /\t/, $b, $NB ) ; }
+    else{
+	$eof++ ; $eofb++ ; }
+}
+sub sav_key {			# save key values from line b in @savkey
+    @savkey = () ;
+    for $_ (@KB){
+	push( @savkey, $G[$_] ) ; }
+}
+sub same_a {	# return 1 if the values in @savkey are equal to the
+		# key values in line a, else return 0
+    $i = 0 ;
+    for $_ (@KA){
+	if( $F[$_] ne $savkey[$i++] ){
+	    return 0 ; }
+    }
+    return 1 ;
+}
+sub same_b {	# return 1 if the values in @savkey are equal to the
+		# key values in line b, else return 0
+    $i = 0 ;
+    for $_ (@KB){
+	if( $G[$_] ne $savkey[$i++] ){
+	    return 0 ; }
+    }
+    return 1 ;
+}

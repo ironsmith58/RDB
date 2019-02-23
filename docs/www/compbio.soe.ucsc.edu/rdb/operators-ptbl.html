@@ -1,0 +1,289 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Operators: ptbl</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H2>ptbl</H2>
+Usage: <CODE>ptbl  [options]</CODE>
+
+<P>
+     This operator used for quick and easy printing of an rdbtable, in a
+simple but useful form.  It prints an rdbtable using formatting
+information from the header.
+
+<P>
+     The printing of each row of data will be on one line if possible,
+but when multiple lines are necessary the second and later lines are
+indented for readability. Also when multiple lines are necessary a
+simple space availability algorithm is used to minimize the number of
+lines printed for each row of data. This may result in the order of some
+data values being rearranged from their order in the rdbtable. The '-b0'
+option can override this algorithm and force the same printing order as
+in the rdbtable.
+
+<P>
+     This RDB operator reads an rdbtable from STDIN and writes a
+formatted report on STDOUT. Options may be abbreviated.
+
+<P>
+Options:
+<UL>
+<LI> -b0 - By default, when a multi-line record of output for each row
+             is necessary (due to the width of the current window or terminal)
+             the program will try to fill space at the end of lines that
+             would otherwise be wasted by moving some columns.  This option
+             prevents the moving of any columns.
+
+<LI> -b[N] - This option attempts a "best fit" by rearranging columns (widest
+             columns first).  If 'N' is given the first N columns of the first
+             line will not be moved. The default condition is '-b'.
+
+<LI> -Bigf - Handle very large data fields, e.g. over 1000 characters. This
+             option takes longer but it works for any size data fields.
+
+<LI> -edit - Edit form of output, used primarily by 'etbl'.
+
+<LI> -fold - Fold long data fields into multi line data based on the defined
+             field width.
+             May be used with the '-t' option to limit the field width.  Only a
+             single line record of output is produced with this option.
+
+<LI> -help - Print this help information.
+
+<LI> -iN - Indent size of N spaces on 2nd and later lines of a multi-line
+             record of output. Default is 4 spaces.
+
+<LI> -lN - Line length of N characters for output. Default is the width of
+             the current window or terminal.
+
+<LI> -pN - Page size in of N lines. Default is the height of the current
+             window or terminal.  A value of zero '-p0' will turn paging off.
+
+<LI> -PX[stg] - Page headings and settings for printing.  A two line heading is
+             put onto each page: page number, current date, and an optional
+             string (stg).  Sets page length (in lines) and line length (in
+             characters) according to the value of 'X' as follows.
+<PRE>
+                    X: P  page: 60  line:   80     (default font size)
+                    X: R  page: 47  line:  116     (rotated default)
+                    X: A  page: 51  line:  125     (rotated 10 point font)
+                    X: 8  page: 63  line:  144     (rotated  8 point font)
+                    X: 6  page: 82  line:  192     (rotated  6 point font)
+                    X: W  page: and line: from current window size.
+</PRE>
+             Other desired page and/or line size options may be set after
+             this in the option list.
+
+<LI> -sK - Separator 'K' (which may be multi character) placed between
+             columns.  Default is two spaces.
+
+<LI> -t[N] - Truncate data to the width defined in the header. If N is given
+             the width of printed fields will be further limited to N
+             characters.
+
+<LI> -window - List as many columns as possible in single line records that
+             will fit in the current window or terminal width.
+</UL>
+
+<P>
+     As an example using the sample rdbtable from the DATA section
+(named sample), the command to view this rdbtable would be:
+
+<PRE>
+        ptbl &lt; sample
+</PRE>
+
+which would produce the output shown in Table 8.  The same command with
+a page heading for printing:
+
+<PRE>
+        ptbl  -PP  &lt;  sample
+</PRE>
+
+produces the output as shown in Table 9.  Using an rdbtable (named
+sample4) that has long data values, shown  in Table 10, the command to
+print the rdbtable using the truncate option is:
+
+<PRE>
+        ptbl  -t  &lt;  sample4
+</PRE>
+
+which will produce output with the data values truncated to the defined
+column width as in Table 11.  Using the same rdbtable with the fold
+option:
+
+<PRE>
+        ptbl  -fold  &lt;  sample4
+</PRE>
+
+produces output with the long data values 'folded' within their defined
+column widths as shown in Table 12.  Note that each line is repeated
+until the entire data value for each column is completely shown. This
+makes this type of output variable length.
+
+
+<PRE>
+                                Table 8
+
+                 PRINTING RDBTABLE (SAMPLE) USING PTBL
+
+        NAME    COUNT  TYP     AMT  OTHER        RIGHT
+        ------  -----  ----  -----  --------  --------
+        Bush       44  A       133  Another       This
+        Hansen     44  A        23  One             Is
+        Jones      77  X        77  Here            On
+        Perry      77  B       244  And            The
+        Hart       77  D      1111  So           Right
+        Holmes     65  D      1111  On            Edge
+</PRE>
+
+
+<PRE>
+                                Table 9
+
+        PRINTING RDBTABLE (SAMPLE) WITH PAGE HEADING USING PTBL
+
+        Page   1   Mon Dec  2 16:56:43 PST 1991
+
+        NAME    COUNT  TYP     AMT  OTHER        RIGHT
+        ------  -----  ----  -----  --------  --------
+        Bush       44  A       133  Another       This
+        Hansen     44  A        23  One             Is
+        Jones      77  X        77  Here            On
+        Perry      77  B       244  And            The
+        Hart       77  D      1111  So           Right
+        Holmes     65  D      1111  On            Edge
+</PRE>
+
+<PRE>
+                                Table 10
+
+        RDBTABLE WITH LONG DATA VALUES (SAMPLE4) ACTUAL CONTENT
+
+        name&lt;T&gt;type&lt;T&gt;contact&lt;T&gt;contents&lt;R&gt;
+        10&lt;T&gt;4&lt;T&gt;21&lt;T&gt;20&lt;R&gt;
+        Hansen&lt;T&gt;AAA&lt;T&gt;R. Starr at the UCLA &amp; USC&lt;T&gt;Duplicate data under
+        processing order number 55-7.&lt;R&gt;
+        Hart&lt;T&gt;CCC&lt;T&gt;Hobbs/Emerson at RAND Corporation&lt;T&gt;85 files, 2 per
+        day containing 12 and 24 hour reports.&lt;R&gt;
+        Hobbs&lt;T&gt;EEE&lt;T&gt;Marshall at Universal AFB&lt;T&gt;Original PAF messages.
+        Both sets are incomplete.&lt;R&gt;
+        Bush&lt;T&gt;KKK&lt;T&gt;General USAF personnel&lt;T&gt;Duplicate ATO messages,
+        incomplete.&lt;R&gt;
+        Lender&lt;T&gt;RRR&lt;T&gt;Army base in Nevada&lt;T&gt;Nothing.&lt;R&gt;
+        Emerson&lt;T&gt;UUU&lt;T&gt;Navy at Washington DC&lt;T&gt;More than we thought at
+        first.&lt;R&gt;
+</PRE>
+
+<PRE>
+                                Table 11
+
+          PRINTING RDBTABLE (SAMPLE4) WITH PTBL -TRUNC OPTION
+
+        name        type  contact                contents
+        ----------  ----  ---------------------  --------------------
+        Hansen      AAA   R. Starr at the UCLA   Duplicate data under
+        Hart        CCC   Hobbs/Emerson at RAND  85 files, 2 per day
+        Hobbs       EEE   Marshall at Universal  Original PAF message
+        Bush        KKK   General USAF personne  Duplicate ATO messag
+        Lender      RRR   Army base in Nevada    Nothing.
+        Emerson     UUU   Navy at Washington DC  More than we thought
+</PRE>
+
+<P>
+     If you need a quick and easy way to look at the data in an rdbtable
+use the -win option.  This option will cause ptbl to list as many
+columns as possible in single line records that will fit in the current
+window or terminal width.  Note that you do not have to type the column
+names (or even know them) to use this option.
+
+<P>
+     It may be combined with the -t option to increase the number of
+columns of data shown on each line at the expense of some column width.
+
+<PRE>
+                                Table 12
+
+           PRINTING RDBTABLE (SAMPLE4) WITH PTBL -FOLD OPTION
+
+        name        type  contact                contents
+        ----------  ----  ---------------------  --------------------
+        Hansen      AAA   R. Starr at the UCLA   Duplicate data under
+                          &amp; USC                  processing order
+                                                 number 55-7.
+        Hart        CCC   Hobbs/Emerson at RAND  85 files, 2 per day
+                          Corporation            containing 12 and 24
+                                                 hour reports.
+        Hobbs       EEE   Marshall at Universal  Original PAF
+                          AFB                    messages.  Both sets
+                                                 are incomplete.
+        Bush        KKK   General USAF           Duplicate ATO
+                          personnel              messages,
+                                                 incomplete.
+        Lender      RRR   Army base in Nevada    Nothing.
+        Emerson     UUU   Navy at Washington DC  More than we thought
+                                                 at first.
+</PRE>
+
+<P>
+     For example the command 'ptbl &lt; d11c' on an 80 character wide
+window or terminal produces the following:
+
+
+<PRE>
+name    count            type  amt    n1                        n3
+------  ---------------  ----  -----  ------------------------  ------------
+    n2                        n4                        n5
+    ------------------------  ------------------------  ------------
+    n6            n7
+    ------------  ------------
+Bush    3                A     133    alpha22.307               117722
+    baker                     DDBBx17                   other
+    124567        8GGXXH17
+Hansen  39               A     23     beta222.307               117723
+    charlie                   DDBBx18                   data
+    1239870       GGXXH17
+Newton  8                E     8      gama22.333                117724
+    dog                       DDBBx19                   exists
+    1239870       GGXXH17
+Hobbs   42               B     144    delta3.3.118              117725
+    echo                      DDBBx20                   here
+    1239870       GGXXH17
+Hart    2                C     55     epslion33.118             117726
+    foxtrot                   DDBBx21                   also
+    1239870       GGXXH17
+</PRE>
+
+This is readable, but not very nice to look at, and even worse if there
+are more columns.  The command 'ptbl -win &lt; d11c' produces:
+
+
+<PRE>
+name   count           type amt   n1                       n3
+------ --------------- ---- ----- ------------------------ ------------
+Bush   3               A    133   alpha22.307              117722
+Hansen 39              A    23    beta222.307              117723
+Newton 8               E    8     gama22.333               117724
+Hobbs  42              B    144   delta3.3.118             117725
+Hart   2               C    55    epslion33.118            117726
+</PRE>
+
+<P>
+     Not all the data is listed, but the first few columns (sometimes
+the most important) are easier to view. The command 'ptbl -win -t6 &lt;
+d11c' shows even more of the data, at the expense of some data width:
+
+<PRE>
+name   count  type amt   n1     n2     n3     n4     n5     n6     n7
+------ ------ ---- ----- ------ ------ ------ ------ ------ ------ ------
+Bush   3      A    133   alpha2 baker  117722 DDBBx1 other  124567 8GGXXH
+Hansen 39     A    23    beta22 charli 117723 DDBBx1 data   123987 GGXXH1
+Newton 8      E    8     gama22 dog    117724 DDBBx1 exists 123987 GGXXH1
+Hobbs  42     B    144   delta3 echo   117725 DDBBx2 here   123987 GGXXH1
+Hart   2      C    55    epslio foxtro 117726 DDBBx2 also   123987 GGXXH1
+</PRE>
+
+</BODY>

@@ -1,0 +1,94 @@
+#! /usr/bin/perl
+$RCS_ID = '$Id: compute,v 2.6 1994/11/09 10:43:59 hobbs Exp $' ;
+$0 =~ s-.*/-- ;
+$HelpInfo = <<EOH ;
+
+	    RDB operator: $0
+
+Usage:  $0  [options]  [statements]
+
+Options:
+    -help    Print this help info.
+    -fXXX    The statements are in the file 'XXX', instead of on the 
+	     command line. The advantage in this case is that no quoting
+	     of chars that might be special to the UNIX shell is necessary.
+
+Computes values for data fields based on arbitrary statements using
+column names. Chars that are special to the UNIX shell must be quoted.
+
+Comparsion operators may be of the form: gt, ge, lt, le, eq, ne.  E.g
+'column eq Hobbs'.  Logical constructors 'or' and 'and' may be used; as
+well as 'null' to indicate an empty data value.
+
+This operator reads a rdbtable via STDIN and writes a rdbtable via STDOUT.
+Options may be abbreviated.
+
+$RCS_ID
+EOH
+%cmpop = ( "lt", "<", "le", "<=", "gt", ">", "ge", ">=", # cmp opers
+	   "eq", "==", "ne", "!="  ) ;
+%resw  = ( "or", "||", "and", "&&", "null", "\"\"" ) ;# reserved words
+while ( $ARGV[0] =~ /^-/ ) {				# Get args
+    $_ = shift ;
+    if( /-f(\S+)/ ) { $FEXP = $1 ; next ; }
+    if( /^-h.*/ ){ print $HelpInfo ; exit 1 ; }
+    if( /-x.*/ ){ $XBUG++ ; next ; }
+    die "\nBad arg: $_\n", "For help type \"$0 -help\".\n" ; 
+}
+while(<STDIN>){
+    print ;
+    next if /^\s*#/ ;			# comment
+    chop ;
+    @F = split( /\t/, $_ );
+    if( ++$lln == 1 ){					# col name line
+	@H = @F ; # save headers
+	$nrf = @H ;	# nr of fields
+	next ; }
+    if( $lln == 2 ){					# col define line
+	if( $FEXP ){			# exp from file
+	    open( FEXP ) || die "\nCan't open input: $FEXP\n" ;
+	    while( <FEXP> ){
+		s/(^|\s+)#.*$// ;	# skip comments
+		$x .= $_ ; }
+	    @ARGV = split( ' ', $x ) ; }
+	for $arg ( @ARGV ){
+	    &convert ; }
+	push( @ARGV, ";" ) if $ARGV[$#ARGV] ne ';' ;
+	$exp = join( ' ', @ARGV ) ;
+	$prog = <<EOP ;
+	while(<STDIN>){
+	    chop ;
+	    \@F = split( /\\t/, \$_, $nrf );
+	    $exp 
+	    print join( "\\t", \@F ), "\\n" ;
+	}
+EOP
+	last ;
+    }
+}
+# print STDERR $prog, "\n" if $XBUG ;
+print STDERR $prog if $XBUG ;	# chg for perl5 
+eval( $prog ) ;
+print STDERR $@ if $@ ;
+
+sub convert {				# chk and convert $arg if necessary
+    for( $f=0 ; $f <= $#H ; $f++ ){
+	if( $arg eq $H[$f] ){		# col name trans
+	    $arg = '$F[' . $f . ']' ;	# defn line
+	    if( $F[$f] =~ /(\S+)/ && $1 =~ /N/i ){
+		$numf++ ; # num data flag
+	    }
+	    return ;
+	}
+    }
+    if( $numf && $cmpop{$arg} ){ # numeric op trans
+	$arg = $cmpop{$arg} ;
+    }
+    else{				# quote leading zeros
+	$arg = '"' . $arg . '"' if $arg =~ /^0/ ;
+    }
+    $numf = "" ;
+    if( $resw{$arg} ){	# reserved word chk
+	$arg = $resw{$arg} ;
+    }
+}

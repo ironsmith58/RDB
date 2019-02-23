@@ -1,0 +1,259 @@
+#! /usr/bin/perl
+$RCS_ID = '$Id: search,v 2.11 1994/03/14 15:10:02 hobbs Exp $' ;
+$0 =~ s-.*/-- ;
+$ACLIM = 31 ;	# max nr of access attempts (safety valve).
+
+$HelpInfo = <<EOH ;
+
+		    RDB operator: $0
+
+Usage:  $0  [options]  rdbtbl  <  keytbl
+        $0  [options]  -ind  index_file  [rdbtbl]  <  keytbl
+
+Options:
+    -help    Print this help info.
+    -ind     Index file search.
+    -part    Partial (initial) match. Applies to string type data only.
+    -sgl     Only a single row match is needed.
+    -rev     Reverse sort option. File 'rdbtbl' is sorted in reverse order.
+    -vom     Verify only mode. If an item of info from keytbl is valid prints
+	     "ok", else an error message, on STDERR. NO new rdbtable is
+	     produced. Used by another process for verification.
+
+This operator does a fast search of 'rdbtbl' (or index_file) using a binary
+search on a key of of one or more columns. The 'rdbtbl' (or index_file) must
+be sorted on the key columns.  Each column in the key may be of type string
+or type numeric (but be carefull with numeric data and exact matches). In the
+second form of usage for this operator if 'rdbtbl' is not given its name will
+be inferred from the name of index_file. For example if index_file is
+'skb.x.typ' then the rdbtbl name inferred will be 'skb.rdb'.
+
+The column(s) in the file 'keytbl' specify both the key column name(s) and the
+argument values to search for. File 'Keytbl' is in rdbtable format.
+
+Normally an argument value and a data field must compare exactally for a match 
+to occur (exact match). If the paritial match otpion (-part) is selected, and
+if the argument value compares with the initial part of the data field it is
+considered a match. This applies to string type data only. Note that for
+numeric type data an exact match is always necessary.
+
+Normally all rows that match will be written to the new rdbtable, in the 
+same order as in the old rdbtable. If only a single row key match is
+appropriate some execution time can be saved by specifing the '-sgl' option.
+
+This operator writes an rdbtable via STDOUT.  Options may be abbreviated.
+Returns the number of non-finds at exit.
+
+$RCS_ID
+EOH
+while ( $ARGV[0] =~ /^-/ ){				# Get args
+    $_ = shift ;
+    if( /^-h.*/ ){ print $HelpInfo ; exit 1 ; }
+    if( /-i.*/ ){ $INDX++ ; $NHDR++ ; $NHCM++ ; next ; }
+    if( /-nc.*/ ){ $NHCM++ ; next ; }
+    if( /-n.*/ ){ $NHDR++ ; $NHCM++ ; next ; }
+    if( /-p.*/ ){ $PART++ ; next ; }
+    if( /-s.*/ ){ $SGL++ ; next ; }
+    if( /-r.*/ ){ $REVO++ ; next ; }
+    if( /-v.*/ ){ $VOM++ ; next ; }
+    if( /-x.*/ ){ $XBUG++ ; next ; }
+    die "\nBad arg: $_\n", "For help type \"$0 -help\".\n" ; 
+}
+die "\n$0: No file name given.\n", "For help type \"$0 -help\".\n"
+    unless @ARGV ;
+$intbl = shift ;
+if( $INDX ){
+    if( @ARGV ){
+	$mtbl = shift ; }
+    else{
+	($base = $intbl) =~ s/\.x\..*$// ;
+	$mtbl = "$base.rdb" ; }
+    open( MT, $mtbl ) || die "Can't open input: $mtbl\n" ;
+    while( <MT> ){
+	print unless $VOM ;
+	next if /^\s*#/ ;	# comment line
+	next unless $second++ ;
+	last ; }
+}
+open( RR, $intbl ) || die "Can't open input: $intbl.\n" ;
+while( <RR> ){						# read rdbtbl header
+    if( /^\s*#/ ){		# comment 
+	print unless $NHCM || $VOM ;
+	next ; }
+    print unless $NHDR || $VOM ;
+    chop ;
+    if( ++$lln == 1 ){
+	@CN = split( /\t/, $_ );# col names
+	next ; }
+    @CD = split( /\t/, $_ );	# col definitions
+    for (@CD){
+	s/^\s*\S+/$&/ ;
+	($_) = /(\S+)/ ; }	# keep only 1st word
+    last ; }
+$lowz = tell ;			# curr position is starting low position
+$hiz = (stat( $intbl ))[7] ;	# end of file is starting hi position
+while( <STDIN> ){					# read keytbl header
+    next if /^\s*#/ ;		# comment 
+    if( ++$kln == 1 ){		# column names
+	chop ;
+	@K = split( /\t/, $_ );
+	for (@K){
+	    for( $k=$i=0 ; $i < @CN ; $i++ ){
+		if( $_ eq $CN[$i] ){
+		    $k++ ;
+		    push( @KEY, $i ) ;	# keys for tbl rows
+		    $x = ($CD[$i] =~ /N/i ? 1 : 0 ) ;
+		    push( @numcmp, $x ) ;
+		    warn "$x .. $CD[$i],\n" if $XBUG ;
+		    last ; }
+	    }
+	    die "Keytbl name no match: $_\n" unless $k ;
+	}
+	next ; }
+    last ; }
+while( <STDIN> ){					# read keytbl data
+    $arg = $_ ;
+    chop ;
+    @kt = split( /\t/, $_ );
+    @spos = () ;	# sort pos in main tbl
+    &do_bin ;
+    if( $INDX ){
+	$x = @spos ;
+	warn "Nr Hits: $x\n" if $x ;
+	for (@spos){
+	    seek( MT, $_, 0 ) ;
+	    $_ = <MT> ;
+	    print unless $VOM ; }
+    }
+}
+exit $errval ;
+
+sub do_bin {					# do the binary search
+    $low = $lowz ;
+    $hi = $hiz ;
+    $uplim = $cnt = $pmid = $ppmid = $close = $multimode = 0 ;
+    while( 1 ){
+	$mid = ($hi + $low) / 2.0 ;	# next search point
+	$cnt++ ;
+	seek( RR, $mid, 0 ) ;
+	<RR> ;		# get to end of line
+	$amid = tell ;	# actual read point of next row
+	if( $amid == $pmid || $amid == $ppmid ){
+	    &do_close ;
+	    last ; }
+	$ppmid = $pmid ;	# prior previous point
+	$pmid  = $amid ;	# previous point
+	if( $amid >= $hiz ){	# high end of tbl
+	    &do_close ;		# special case
+	    last ; }
+	$_ = <RR> ;	# read complete row
+	chop ;
+	@a = split( /\t/, $_ );
+	&x_info if $XBUG ;
+	$phi = $hi ;		# previous hi
+	if( $multimode ){	# in multi arg search process
+	    if( &cmp_key == 0 ){
+		$hi = $mid ; }
+	    else{
+		$low = $mid ; }
+	}
+	else{			# no match yet
+	    if( ($cv = &cmp_key) == 0 ){
+		if( $SGL ){	# single row key match request
+		    if( $INDX ){
+			push( @spos, $a[$#a] ) ; }
+		    else{
+			unless( $VOM ){
+			    print $_, "\n" ; }
+			else{
+			    warn "ok\n" ; } }
+		    last ; }
+		else{		# multi row key match request
+		    $multimode++ ;
+		    $uplim = $amid ;
+		    $hi = $mid ; } }
+	    else{
+		if( $cv < 0 ){
+		    $hi = $mid ; }
+		else{
+		    $low = $mid ; } }
+	}
+	if( $cnt >= $ACLIM ){	# safety valve, if tbl not sorted, or ...
+	    warn "Access limit: $arg\n" ;
+	    return ; }
+    }
+}
+sub do_close {		# find all match rows, in order, starting at $low
+    local( $hit ) = 0 ;
+    warn "CLOSE...\t($amid)\n" if $XBUG ;
+    $uplim = $phi unless $uplim ;
+    if( ( $low - $lowz) < ($hi - $low) ){ # close to init low point
+	$low = $amid = $lowz ; }
+    seek( RR, $low, 0 ) ;
+    <RR> unless $low == $lowz ;	# special: the first row
+    $amid = tell ;
+    while( <RR> ){
+	last if $amid > $uplim ;# upper limit of search (for 1st match)
+	chop ;
+	@a = split( /\t/, $_ );
+	&x_info if $XBUG ;
+	unless( &cmp_key == 0 ){
+	    $amid = tell ;
+	    next ; }
+	$hit++ ;
+	if( $INDX ){
+	    push( @spos, $a[$#a] ) ; }
+	else{
+	    unless( $VOM ){
+		print $_, "\n" ; }
+	    else{
+		warn "ok\n" ; } }
+	$amid = tell ;
+	last if $SGL || $VOM ;	# stop if only single match wanted or VOM
+	while( <RR> ){
+	    chop ;
+	    @a = split( /\t/, $_ );
+	    return unless &cmp_key == 0 ;
+	    &x_info if $XBUG ;
+	    if( $INDX ){
+		push( @spos, $a[$#a] ) ; }
+	    else{
+		print $_, "\n" ; }
+	    $amid = tell ; }
+    }
+    &no_find unless $hit ;
+}
+sub cmp_key {	# cmp key cols in @kt, @a. Return -1, 0, 1 as appropriate.
+    local( $less, $greater ) = ( -1, 1 ) ;
+    if( $REVO ){ $less = 1, $greater = -1 ; }	# if reverse sort order
+    for( $i=0 ; $i < @KEY ; $i++ ){
+	$k = $KEY[$i] ;
+	if( $numcmp[$i] ){		# numeric comparsion
+	    if( $kt[$i] < $a[$k] ){
+		return $less ; }
+	    if( $kt[$i] > $a[$k] ){
+		return $greater ; }
+	}
+	else{				# string comparsion
+	    print STDERR "\t($a[$k])  " if $XBUG ;
+	    next if $PART && $a[$k] =~ /^$kt[$i]/ ;
+	    if( $kt[$i] lt $a[$k] ){
+		warn "<<<<<\n" if $XBUG ;
+		return $less ; }
+	    if( $kt[$i] gt $a[$k] ){
+		warn ">>>>>\n" if $XBUG ;
+		return $greater ; }
+	}
+    }
+    warn "MATCH\n" if $XBUG ;
+    0 ;
+}
+sub x_info {					# print debug info to STDERR
+    printf STDERR "%2d %8.1f %8.1f (%8.1f) %8.1f %s\n",
+	$cnt, $low, $mid, $amid, $hi, $a[$k] ;
+}
+sub no_find {
+    $errval++ ;
+    warn "Not found: $arg" ;
+    warn "\n" unless $VOM ;
+}

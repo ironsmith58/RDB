@@ -1,0 +1,95 @@
+#! /usr/bin/perl
+$RCS_ID = '$Id: lst2tbl,v 2.5 1993/03/29 13:34:46 hobbs Exp $' ;
+$0 =~ s-.*/-- ;
+$HelpInfo = <<EOH ;
+
+	    RDB operator: $0
+
+Usage:  $0  [options]
+
+Options:
+    -edit    Edit option. Used by etbl.
+    -help    Print this help info.
+
+Converts a file in "list" format to an rdbtable. Long data fields may be folded.
+
+This RDB operator reads the "list" format file from STDIN and writes an
+rdbtable to STDOUT.  Options may be abbreviated.
+
+$RCS_ID
+EOH
+while ( ($_ = $ARGV[0]) =~ /^-/ ) {				# Get args
+    shift ;
+    if( /^-e.*/ ){ $EDT++ ; next ; }
+    if( /^-h.*/ ){ print $HelpInfo ; exit 1 ; }
+    die "\nBad arg: $_\n", "For help type \"$0 -help\".\n" ; 
+}
+$ndx = 0 ;
+while(<STDIN>){						# the header
+    if( $EDT && /^\.\.>>>/ ){ print $_ ; next ; }	# control line
+    if( /^\s*#/ ){ print $_ ; next ; } 	# comment 
+    if( /^\s*$/ ){
+	next if ! $inhdr ;
+	last ; }	# end of section
+    $inhdr++ ;
+    chop ;
+    ($col, $data) = split( /\|/, $_ ) ;
+    $col =~ s/^\s+// ;		# remove lead, trail space chars
+    $col =~ s/\s+$// ;		# from $col & $data
+    $data =~ s/^\s+// ;
+    $data =~ s/\s+$// ;
+    $data =~ s/\t/ /g ;		# just in case ...
+    while(<STDIN>){
+	last if /\|/ || /^\s*$/ ;
+	chop ;
+	$_ =~ s/^\s+// ;
+	$_ =~ s/\s+$// ;
+	$_ =~ s/\t/ /g ;	# just in case ...
+	$data .= ' ' . $_ ; }
+    $colx{$col} = $ndx ;
+    $rec[$ndx] = $col ;
+    $tmp[$ndx] = $data ;
+    $recmax = $ndx++ ;
+    redo ;
+}
+&outrec ;
+@rec = @tmp ;
+&outrec ;
+
+$pblank++ ;
+while(<STDIN>){						# the data
+    if( $EDT && /^\.\.>>>/ ){ print $_ ; next ; }
+    if( /^\s*$/ ){		# blank line
+	&outrec if ! $pblank ;
+	$pblank++ ;
+	next ; }
+    $pblank = "" ;
+    chop ;
+    ($col, $data) = split( /\|/, $_ ) ;
+    $col =~ s/^\s+// ;		# remove lead, trail space chars
+    $col =~ s/\s+$// ;		# from $col & $data
+    $data =~ s/^\s+// ;
+    $data =~ s/\s+$// ;
+    $data =~ s/\t/ /g ;		# just in case ...
+    while(<STDIN>){
+	if( $EDT && /^\.\.>>>/ ){ print $_ ; next ; }
+	last if /\|/ || /^\s*$/ ;
+	chop ;
+	$_ =~ s/^\s+// ;
+	$_ =~ s/\s+$// ;
+	$_ =~ s/\t/ /g ;	# just in case ...
+	$data .= ' ' . $_ ; }
+    $c = $colx{$col} ;
+    if( $c eq "" ){
+	warn "Bad column name: $col\n" ;
+	push( @rec, $data ) ; }
+    else{
+	$rec[$c] = $data ; }
+    redo ;
+}
+&outrec if ! $pblank ;
+sub outrec {			# output a record in RDB format
+    print join( "\t", @rec ), "\n" ;
+    for $r (@rec){ $r = "" ; }
+    $#rec = $recmax ;
+}

@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Operators: mergetbl</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H2>mergetbl</H2>
+Usage: <CODE>mergetbl  [options]  &lt; old_table  column  ...  merge_table</CODE>
+
+<P>
+     This operator merges and/or deletes rows of 'old_table' based on
+data values in 'merge_table' in the specified column(s).  Both tables
+should be sorted on the specified column(s).
+
+<P>
+     In the normal case, one or more rows in 'merge_table' either
+replace one or more existing rows in 'old_table' if the key column(s)
+match, or are inserted in order if the key column(s) do NOT match.
+
+<P>
+     If the delete option is specified on the command line, one or more
+existing rows in 'old_table' will be deleted if there is a key column(s)
+match and the data in the delete column is equal to the delete string,
+"&gt;&gt;DEL&lt;&lt;" (without the quotes) by default.  The delete column is the
+first non-key column in 'merge_table'.
+
+<P>
+     Both tables should have similar data structures. The header for the
+new rdbtable is taken from 'merge_table', thus allowing a change of
+header  information to be made.
+
+<P>
+Options:
+<UL>
+<LI> -d - Delete option. Delete rows where the key column(s) match and
+             the data value in the delete column is equal to the delete
+             string, "&gt;&gt;DEL&lt;&lt;" (without the quotes) by default.
+
+<LI> -dSTG - Like the delete option above but use 'STG' as the delete string.
+
+<LI> -help - Print this help info.
+</UL>
+
+<P>
+     This operator writes an rdbtable via STDOUT.  Options may be
+abbreviated.
+
+</BODY>

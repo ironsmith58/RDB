@@ -1,0 +1,55 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Operators: search</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H2>search</H2>
+Usage: <CODE>search  [options]  rdbtbl  &lt;  keytbl</CODE>
+
+<P>
+     This operator does a fast search of 'rdbtbl' using a binary search
+on a key of of one or more columns.  The 'rdbtbl' must be sorted on the
+key columns.  Each column in the key may be of type string or type
+numeric (but be careful with numeric data and exact matches).
+
+<P>
+     The column(s) in 'keytbl' specify both the key column name(s) and
+the argument values to search for. 'Keytbl' is also in rdbtable format.
+
+<P>
+     Normally an argument value and a data field must compare exactally
+for a match  to occur (exact match). If the paritial match otpion
+(-part) is selected, and if the argument value compares with the initial
+part of the data field it is considered a match. This applies to string
+type data only. Note that for numeric type data an exact match is always
+necessary.
+
+<P>
+     Normally all rows that match will be written to the new rdbtable,
+in the  same order as in the old rdbtable. If only a single row key
+match is appropriate some execution time can be saved by specifing the
+'-sgl' option.
+
+<P>
+Options:
+<UL>
+
+<LI> -help - Print this help info.
+
+<LI> -ht - Hashtable index search, dbm type index file.
+
+<LI> -htr - Hashtable index search, regular UNIX index file.
+
+<LI> -part - Partial (initial) match. Applies to string type data only.
+
+<LI> -sgl - Only a single row match is needed.
+</UL>
+
+<P>
+     This operator writes an rdbtable via STDOUT.  Options may be
+abbreviated.
+
+</BODY>

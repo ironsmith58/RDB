@@ -1,0 +1,41 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Operators: summ</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H2>summ</H2>
+Usage: <CODE>summ  [options]  [column ...]</CODE>
+
+<P>
+     Produces "summary" information about the rdbtable. If no columns
+are given then information about all columns is produced.  A Count of
+the data rows is always shown.
+
+<P>
+     This operator reads an rdbtable via STDIN and writes a summary
+report via STDOUT.  Options may be abbreviated.
+
+<P>
+Options:
+<UL>
+
+<LI> -cu - A Count of the unique values for each column given.
+
+<LI> -cun - Like option '-cu' but also shows counts of null (empty) and
+
+             blank values (have only space chars), if either exist.
+
+<LI> -cuu - A Count of each unique value for each column given.
+
+<LI> -help - Print this help information.
+
+<LI> -m - The min, average, max, for each column given.
+
+<LI> -v - Inverse option. Selects all columns except those named.
+</UL>
+
+
+</BODY>

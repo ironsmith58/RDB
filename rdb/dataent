@@ -1,0 +1,434 @@
+#! /usr/bin/perl
+$RCS_ID = '$Id: dataent,v 2.16 1995/10/18 11:23:22 hobbs Exp $' ;
+($pdir = $0) =~ s-[^/]+$-- ;	# pgm dir
+$pdir = '.' unless $pdir ;
+$0 =~ s-.*/-- ;
+$LFSUF = ".LCK" ;	# lockfile suffix
+$HelpInfo = <<EOH ;
+
+	    RDB utility: $0
+
+Usage:  $0  [options]  rdbtable
+   or:  $0  [options]  -init  template
+
+Options:
+    -cn COL ... --  Check for null values in the given columns. Do not allow
+	     nulls or values that contain only space or tab chars. Does not
+	     apply to line mode.
+    -help    Print this help info.
+    -line    Use a line mode for data entry instead of full screen mode.
+    -nbr     Do NOT remove leading and trailing blank space from data values.
+	     Applies to line mode only.
+    -prev    Use data values from previous row as defaults for the current row.
+
+This utility provides a full screen interactive capability for entering data
+values into an rdbtable.  It provides a "forms" type screen for entering data
+values for a row at a time, with the column names on the left and the
+associated data entry fields on the right.  The column names are defined by
+the given rdbtable or template file.
+
+Data values may be entered at the cursor for that data field and the TAB key
+moves the cursor to the next data field (other cursor movement is also
+available).  After all desired data values for the current row have been
+entered, the user presses the RETURN key and is asked for the next action.
+The default action is to save the current row of data to the rdbtable and
+continue on to the next row.  Other options include: quit saving the current
+row; exit not saving the current row; and show an online help listing.
+
+When data is entered a mini-editor is activated which provides editing control
+within the field. If more data is desired than will fit into the screen field
+the data is auto scrolled left or right during entry as a viewing aid.  Details
+regarding the mini-editor and also general cursor movement are shown in the
+online help listing.
+
+In the first case of usage above, new rows of data are added to the end of an
+existing rdbtable. In the second case, a template file is used to generate a
+new rdbtable and add rows of data to it.
+
+At any time an INTERRUPT signal (^C or DEL) may be entered to abort the
+program.  In this case the current row of data will be lost.
+
+Concurrency control to prevent silmultaneous wrting of an rdbtable by multiple
+users is provided by the use of a lockfile "rdbtable$LFSUF".
+
+Options may be abbreviated.
+Uses the RDB operator: headchg, and the files: cterm, cterm.pl, cdefs.pl,
+curcon.pl.
+
+$RCS_ID
+EOH
+@helpinfo = <<EOHI ;
+General cursor movement (movement is circular)
+
+    To move down a field:         <TAB>, <ARROW-DOWN>, or ^J
+    To move up a field:           <ESC>, <ARROW-UP> or ^K
+
+Within a field (always in INSERT mode)
+
+    To backspace with delete:       <BS>
+    To move right:                  <ARROW-RIGHT> or ^F
+    To move left:                   <ARROW-LEFT> or ^B
+    To delete all data in field:    <BS> when cursor is in 1st char position
+    To recover deleted data:        <BS> again
+    To delete a single char:        ^U
+    To toggle status of -prev opt   -p
+
+To get to action line at bottom of screen: <RET>
+EOHI
+$SIG{'INT'} = 'catch' ;				# in case of an INT
+$SCRN++ ;		# default mode
+while ( $ARGV[0] =~ /^-/ ){				# Get args
+    $_ = shift ;
+    if( /-c.*/ ){			# chk nulls
+	for $_ (&get_alist){ $ck_null{$_} = -1 ; } next ; }
+    if( /^-h.*/ ){ print $HelpInfo ; exit 1 ; }
+    if( /-i.*/ ){ $INIT++ ; next ; }
+    if( /-l.*/ ){ $SCRN = 0 ; next ; }
+    if( /-n.*/ ){ $NBRM++ ; next ; }
+    if( /-p.*/ ){ $PREV++ ; next ; }
+    if( /-s.*/ ){ $SCRN++ ; next ; }
+    if( /-x.*/ ){ $xbug++ ; next ; }
+    die "\nBad arg: $_\n", "For help type \"$0 -help\".\n" ; }
+$file = shift ;
+if( ! $file ){ die "\nNo file given.\n", "For help type \"$0 -help\".\n" ; }
+if( $INIT ){					# init a new rdbtable
+    @F = `headchg -gen -q $file` ;
+    die "\n$0: Run aborted\n" if $? != 0 ;  # headchg error
+    for $_ (@F){
+	next if /^\s*#/ ;	# comment
+	chop( $y = $_ ) ;	# col name line
+	last ; }
+    @H = split( "\t", $y ) ;
+    if( $file =~ /\.[^.]*$/ && $& ne '.rdb' ){	# get new filename
+	$new = "$`.rdb" ; }		# form:  xxx.rdb
+    else{
+	$new = "$file.rdb" ; }	# safety valve
+    ($lockfile = $new) =~ s-$-$LFSUF- ;	# lock file name
+    if( -f $new ){				# $new already exists 
+	print STDERR "\nFile $new exists, Add new data to end? " ;
+	$a = <STDIN> ;
+	die "\nAborting\n" if $a !~ /^y/i ;
+	&set_lock ;
+	open( UT, ">>$new" ) || &dieu( "\nCan't open output: $new\n" ) ; }
+    else{
+	&set_lock ;
+	open( UT, ">$new" ) || &dieu( "\nCan't open output: $new\n" ) ;
+	print UT @F ; }		# header of new rdbtable 
+}
+else{						# add to existing rdbtable
+    open( FI, $file ) || die "\nCan't open input: $file\n" ;
+    while(<FI>){
+	next if /^\s*#/ ;	# comment
+	chop ;			# col name line of header
+	last ; }
+    @H = split( "\t", $_ ) ;
+    close FI ;
+    ($lockfile = $file) =~ s-$-$LFSUF- ;	# lock file name
+    &set_lock ;
+    open( UT, ">>$file" ) || &dieu( "\nCan't open output: $file\n" ) ;
+}
+$sel = select(UT) ; $|++ ; select($sel) ;      # so data is written immediately
+
+&set_ck_null ;
+for( $i=0 ; $i < @H ; $i++ ){ $dat[$i] = "" ; }	# clear array @dat
+if( $SCRN ){
+    &scrn_ent ; }
+else{
+    &line_ent ; }
+&unlock ;
+
+sub set_ck_null {				# set %ck_null for later use
+    return unless defined %ck_null ;
+    local( $i, $h ) ;
+    for $h (keys %ck_null){		# chk headers
+	for( $i=0 ; $i < @H ; $i++ ){
+	    if( $h eq $H[$i] ){
+		$ck_null{$h} = $i ;	# index in @H, @dat
+		last ; } }
+	if( $ck_null{$h} < 0 ){
+	    die "\nBad column name: $h\n" ; }
+    }
+}
+sub catch {			# catch INTs, save data to rdbtable
+    close UT ;
+    &unlock ;
+    if( $SCRN ){
+	&endwin ;
+	&finishCterm ; }
+    exit ;
+}
+sub set_lock {			# chk write perm, setup lock (uses $lockfile)
+    ($dbdir = $lockfile) =~ s-[^/]+$-- ;	# db dir
+    $dbdir = "." unless $dbdir ;
+    $dbdir =~ s-/$-- ;
+    unless( -w $dbdir ){
+	die "No write permission in dir: $dbdir\n" ; }
+    unless( &lock ){			# request lock
+	die "File busy: $file, try later.\n" ; }
+}
+sub lock {	# chk, set lock on the file. ret 1 if lock set; else 0.
+    $umask = umask( 0777 ) ;
+    unless( open( LF, ">$lockfile" )){
+	umask( $umask ) ;
+	return 0 ; }
+    umask( $umask ) ;
+    1 ;
+}
+sub unlock {					# remove lock on the file.
+    unlink $lockfile ;
+}
+sub line_ent {					# line oriented data entry
+    main: while( 1 ){					# main loop
+	unless( $do_over ){			# clear row
+	    print "New Row ...\n" ;
+	    if( ! $PREV ){
+		for( $i=0 ; $i < @H ; $i++ ){ $dat[$i] = "" ; } }
+	    $#dat = $#H ; }
+	for( $i=$ii ; $i < @H ; $i++ ){	# print values, if any, prompts
+	    if( $dat[$i] ){
+		printf( "%12s: (%s) ", $H[$i], $dat[$i] ) ; }
+	    else{
+		printf( "%12s: ", $H[$i] ) ; }
+	    chop( $v = <STDIN> ) ;
+	    if( $v eq ' ' ){		# go to (end of row) action prompt
+		last ; }
+	    if( $v eq '  ' ){		# back up a column
+		$i--  if $i > 0 ;
+		print "\n" ;
+		redo ; }
+	    if( $v ){			# save data value
+		unless( ($v =~ s/^\\// ) || $NBRM ){
+		    $v =~ s/^\s+// ;
+		    $v =~ s/\s+$// ;
+		}
+		if( $v =~ s/\t/ /g ){
+		    warn "TAB chars removed\n" ; }
+		$dat[$i] = $v ;
+	    }
+	}
+	while( 1 ){						# ACTION prompt
+	    $do_over = $ii = 0 ;
+	    print
+	    "ACTION? (save, check, quit, list, del, jump NAME, help) [save] ";
+	    chop( $a = <STDIN> ) ;
+	    if( $a =~ /^s/ || $a eq "" ){		# new row in rdbtable
+		print UT join( "\t", @dat ), "\n" ;
+		last ; }
+	    elsif( $a =~ /^c/ || $a =~ /^ / ){		# check row again
+		print "\n" ;
+		$do_over++ ;
+		last ; }
+	    elsif( $a =~ /^l/ ){			# list entire row
+		print "\n" ;
+		for( $i=0 ; $i < @H ; $i++ ){
+		    if( $dat[$i] ){
+			printf( "%12s: (%s)\n", $H[$i], $dat[$i] ) ; }
+		    else{
+			printf( "%12s:\n", $H[$i] ) ; } } }
+	    elsif( $a =~ /^q/ ){			# quit
+		if( $a =~ /^q\S*\s+\S/ ){			# del row
+		    last main ; }
+		print UT join( "\t", @dat ), "\n" ;		# save row
+		last main ; }
+	    elsif( $a =~ /^d/ ){			# del this row, continue
+		last ; }
+	    elsif( $a =~ /^j\S*\s+(\S+)/ ){		# jump to col, do over
+		$x = $1 ;
+		for( $i=0 ; $i < @H ; $i++ ){
+		    if( $H[$i] =~ /^$x/ ){
+			$ii = $i ;
+			last ; }
+		}
+		$do_over++ ;
+		last ; }
+	    elsif( $a =~ /^-/ ){			# toggle option
+		if( $a =~ /^-p/ ){
+		    if( $PREV ){ $PREV = 0 ; print "\n\t>>> -prev OFF\n\n" ; }
+		    else{ $PREV++ ; print "\n\t>>> -prev ON\n\n" ; } }
+		if( $a =~ /^-n/ ){
+		    if( $NBRM ){ $NBRM = 0 ; print "\n\t>>> -nbr OFF\n\n" ; }
+		    else{ $NBRM++ ; print "\n\t>>> -nbr ON\n\n" ; } }
+	    }
+	    elsif( $a =~ /^h/ ){			# help listing
+		print <<EOP ;
+
+save    - save row, continue.
+check   - check each data value for this row again.
+quit    - save row, quit program.
+quit no - do NOT save row, quit program.
+list    - List data values for entire row.
+del     - delete this row, start new row.
+jump NAME - jump back to column NAME, check rest of row.
+INTERRUPT (^C or <DEL>) - abort the program, discarding the current row.
+
+At any column name prompt:
+a space char & <RET>    - jump to the end of row action prompt.
+two space chars & <RET> - jump back to the previous column name prompt.
+
+Options and column names may be abbreviated.
+
+EOP
+	    } # help listing
+	    else{ print "What ?\n" ; }
+	} # action prompt
+    } # main
+}
+sub scrn_ent {					# screen oriented data entry
+    unshift( @INC, $pdir ) ;
+    # &fudge_term ;	# chk bad TERM setting; comment out if not at RAND
+    do 'cterm.pl' || &dieu( "\n$0: Can't include cterm.pl\n" ) ;
+    &startCterm(@ARGV) ;
+    $std = &initscr ; &nonl ; &cbreak ; &noecho ;
+
+    &editl($curcon{'KEY_LEFT'}) if defined $curcon{'KEY_LEFT'} ;
+    &editr($curcon{'KEY_RIGHT'}) if defined $curcon{'KEY_RIGHT'} ;
+    &editq($curcon{'KEY_UP'}) if defined $curcon{'KEY_UP'} ;
+    &editq($curcon{'KEY_DOWN'}) if defined $curcon{'KEY_DOWN'} ;
+    &editq($curcon{'KEY_RET'}) ;
+    &editq($curcon{'KEY_TAB'}) ;
+    &editq(10) ;	# ^J (for down)
+    &editq(11) ;	# ^K (for up)
+    &editq(27) ;	# <ESC> 
+
+    $lact = $LINES-1 ;		# action prompt line ndx
+    $wlines = $LINES -1 ;	# win nr of lines
+    $wmax = $wlines -1 ;	# bot win line ndx
+    $xtra = @H - $wlines ; 	# excess of data lines over win lines
+    $col = 15 ;			# col for editing
+    $win = &newwin( $wlines,0,0,0 ) ;
+    &scrollok($win,1) ;		#
+    &keypad($win,1) if defined $curfun{'keypad'} ;
+    # &leaveok($win,0) ; &refresh ;
+    $new_ent++ ;		# new entry
+    if( $xbug ){
+	for $x (@dat){ $n++; $x = "dat $n" ; } }
+    while( 1 ){
+	if( $new_ent ){
+	    &wclear( $win ) ;				# clear screen
+	    $sup = 0 ;
+	    $k = ( $xtra > 0 ? $wmax : $#H ) ;
+	    for( $i=0, $j=0 ; $j <= $k ; $i++, $j++ ){
+		&mvwaddstr( $win,$j,0,sprintf( "%14s", $H[$i] )) ;# col prompt
+		&mvwaddstr( $win,$j,$col+1,$dat[$i] ) ; }	# data
+	    $l = 0 ;		# reposition at top line
+	    $new_ent = 0 ; }
+	&clrreg( $lact, $lact ) ;  		# clear action line
+	&mvaddstr( $lact, 0, "$msg" ) ;		# message on action line
+	&refresh ;
+	           			# get data for each column, curr row
+	for( ; 1 ; &clrreg( $lact, $lact ), &refresh, $msg = "" ){
+	    $d = $l + $sup ;				# data d, win line l
+	    ( $dat[$d], $quitKey ) =			# edit the field
+		&wedit( $win,$dat[$d],0,$l,$col,60, ' <> ') ;	# line l
+	    if( $quitKey == 13 ){			# <RET>
+		last ; }
+	    if( &ch2str($quitKey) eq 'KEY_UP' || $quitKey == 11 ||
+		$quitKey == 27 ){			# UP, ^K, <ESC>
+		if( $l > 0 ){		# not at top line
+		    $l-- ; }
+		elsif( $sup ){		# at top line, have data lines up
+		    $sup-- ;
+				    # SCROLL dn 1 line; chk msg line clear
+		    &winsertln( $win ) ;
+		    &mvwaddstr( $win,$l,0,sprintf( "%14s", $H[$d-1] ));# prompt
+		    &wrefresh($win) ; }
+		else{			# at top line, no data lines up
+		    if( $xtra <= 0 ){
+			$l = $wmax + $xtra ; } # (- -xtra)
+		    else{
+			$sup = $x = $xtra ;
+			$l = $wmax ;
+			for( ; $x ; $x-- ){ 	# SCROLL up sup lines
+			    # &wmove( $win, 0, 0 ) ;
+			    # &wdeleteln( $win ) ;
+			    &scroll( $win ) ;	#
+			    $d  = @H - $x ;
+			    &mvwaddstr( $win,$l,0,sprintf("%14s",$H[$d]));#prpt
+			    &mvwaddstr( $win,$l,$col+1,$dat[$d] ) ; }    # data
+			&wrefresh($win) ; }
+		}
+		next ; }				    # its a DOWN key
+	    if( $d >= $#H ){		# no more data
+		$l = 0 ;
+		if( $sup ){	# SCROLL down $sup lines; chk msg line clear
+		    &wmove( $win, 0, 0 ) ;
+		    $x = $sup ;
+		    for( ; $x ; $x-- ){
+			&winsertln( $win ) ;
+			$d  = $x -1 ;
+			&mvwaddstr( $win,$l,0,sprintf( "%14s", $H[$d] ));#prompt
+			&mvwaddstr( $win,$l,$col+1,$dat[$d] ) ;          # data
+		    }
+		    &wrefresh($win) ;
+		    $sup = 0 ; } }
+	    else {			# more data
+		if( $l < $wmax ){
+		    $l++ ; }
+		else {			# at bot line # SCROLL up 1 line 
+		    # &wmove( $win, 0, 0 ) ;
+		    # &wdeleteln( $win ) ;
+		    &scroll( $win ) ;	#
+		    &mvwaddstr( $win,$l,0,sprintf( "%14s", $H[$d+1] ));# prompt
+		    &wrefresh($win) ;
+		    $sup++ ; }
+	    }
+	}				    # next action prompt, bot of screen
+	&mvaddstr( $lact, 0,
+	    "Save(or<RET>), Continue, Quit(save), Exit(nosave), Help " ) ;
+	$cha = &ch2str( &getchR ) ;
+	last if $cha =~ /^e/i ;				# exit no save
+	if( $cha =~ /^h/i ){				# help
+	    $winh = &newwin( $wlines,0,0,0 ) ;
+	    for( $x=0 ; $x <= $wmax ; $x++ ){
+		&mvwaddstr( $winh,$x,0, $helpinfo[$x] ); }
+	    &wrefresh($winh) ;
+	    &clrreg( $lact, $lact ) ;
+	    &mvaddstr( $lact, 0, "Press any key to continue " ) ;
+	    &getchR ;
+	    &touchwin( $win ) ;
+	    &wrefresh($win) ;
+	    &clrreg( $lact, $lact ) ; }
+	elsif( $cha eq 'KEY_RET' || $cha =~ /^s/i || $cha =~ /^q/i ){
+	    if( defined %ck_null && &ck_null_err ){
+		$msg = "Can't save, NULL value in: $H[$z]" ;
+		next ; }
+	    $msg = "Data saved to file" ;
+	    print UT join( "\t", @dat ), "\n" ;		# save row of data
+	    last if $cha =~ /^q/i ;			# quit
+	    $new_ent++ ;
+	    unless( $PREV ){
+		for( $i=0 ; $i < @H ; $i++ ){ $dat[$i] = "" ; } } } # clear @dat
+	elsif( $cha eq '-' ){				# option chg
+	    $cha = &ch2str( &getchR ) ;
+	    if( $cha =~ /^p/i ){			# -prev option
+		if( $PREV ){ $PREV = 0 ; $msg = "PREV OFF" ; }
+		else{ $PREV++ ; $msg = "PREV ON" ; } } }
+    }
+    &clear; &refresh ; &endwin ; &finishCterm ;
+}
+sub ck_null_err {		# chk for nulls, return 1 if error, else 0
+    local( $x ) ;
+    for $x (values %ck_null){
+	if( $dat[$x] =~ /^\s*$/ ){
+	    $z = $x ;		# index in @H, @dat
+	    return 1 ; }
+    }
+    0 ;
+}
+sub fudge_term {		# chk bad TERM setting, needed for RAND
+    if( $ENV{'TERM'} eq 'mac' ){
+	$ENV{'TERM'} = 'mac-test' ; }
+    elsif( $ENV{'TERM'} eq 'cuevt' ){
+	$ENV{'TERM'} = 'cuevt-test' ; }
+}
+sub dieu {						# clear lock, die
+    &unlock ;
+    die $_[0] ;
+}
+sub get_alist {		# return list of cmd line args, til next '-' flg arg
+    local( @x ) ;
+    while( $ARGV[0] ne "" && $ARGV[0] !~ /^-/ ){
+	push( @x, shift(@ARGV) ) ; }
+    shift(@ARGV) if $ARGV[0] =~ /^--/ ;
+    @x ;
+}

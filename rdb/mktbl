@@ -1,0 +1,38 @@
+#! /usr/bin/perl
+$RCS_ID = '$Id: mktbl,v 2.7 1993/03/29 13:34:46 hobbs Exp $' ;
+$0 =~ s-.*/-- ;
+$HelpInfo = <<EOH ;
+
+		    RDB Operator: $0
+
+Usage: $0 [options]
+
+Options:
+    -edit    Edit form of output, used primarily by 'etbl'.
+    -help    Print this help info.
+
+Makes a file of data in columns (with visible column delimiters) into an
+rdbtable.  The column delimeter is the pipe symbol (|).
+
+This operator reads a file via STDIN and writes an rdbtable via STDOUT.
+Options may be abbreviated.
+
+$RCS_ID
+EOH
+#    -sK     K will be the visible column delimiter, which may be multi-char.
+#	     Default is '|', e.g. a space, a vertical bar, and a space.
+while ( $ARGV[0] =~ /^-/ ) {				# Get args
+    $_ = shift ;
+    if( /-e.*/ ){ $EDT++ ; next ; }
+    if( /^-h.*/ ){ print $HelpInfo ; exit 1 ; }
+    die "\nBad arg: $_\n", "For help type \"$0 -help\".\n" ; 
+}
+while(<>){
+    if( $EDT && /^\.\.>>>/ ){ print ; next ; }	# control line
+    if( /^\s*#/ ){ print ; next ; } 	# comment 
+    s/^\s+// ;
+    s/\s+$/\n/ ;
+    s-\s*\|[ \t]*-\t-g ;
+    $_ = "\n" if $_ eq "" ;	# safety valve
+    print ;
+}

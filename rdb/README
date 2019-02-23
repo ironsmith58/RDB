@@ -1,0 +1,42 @@
+			    Documentation
+
+The documentation is the (postscript) file 'RDB.ps'. This is about
+60 pages when printed on a postscript printer.  The file 'rdb'
+contains a quick overview of this RDB system, also, each of the RDB
+operators takes a '-help' option for online information.  There is
+information on the RDB system in the magazine article referenced
+below and in the book referenced in the documentation file.
+
+			    Disclamer
+
+This program (the set of RDB operators) is still in the process of
+development.  It is not guaranteed to be error free; however it
+works very well for our current efforts and I know of no outstanding
+errors.  Use as desired; if errors or unusual conditions are found
+please let me know.  Feedback is encouraged. I will make modifications
+and distribute updated versions.
+
+    Send feedback to:  hobbs@rand.org
+
+The development of this program was NOT done under any Government
+contract or Government sponsored effort.
+
+Note that this program was implemented ENTIRELY from the
+information contained in the article in "Unix Review", March,
+1991, page 24, entitled "A 4GL Language" and our own expansion on
+those ideas.  No other outside source of information on RDB was
+known or used at the time.
+
+		    >>>>>>  NO  WARRANTY  <<<<<<  
+
+THERE IS NO WARRANTY FOR THIS PROGRAM.  THE PROGRAM IS PROVIDED
+"AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR
+IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+
+This program is not copyrighted, is freely available, and is free.
+However if you like and use it, or give it to another, you might
+remember where it originated ...
+
+Walt Hobbs		hobbs@rand.org
+Santa Monica, CA

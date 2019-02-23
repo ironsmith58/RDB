@@ -1,0 +1,107 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Operators: headchg</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H2>headchg</H2>
+Usage: <CODE>headchg  [options]  file.tpl</CODE>
+
+<P>
+     Replaces the header (first two rows) of an rdbtable with a header
+generated from information in the template file 'file.tpl'.  Options are
+available to add, copy, or delete the header, or to generate a template
+file from an existing rdbtable.
+
+<P>
+     Each line of the Template file contains info about a column, in
+order.  The lines contain: (optional) index number (starting at 0 or 1),
+column name, definition, and (optional) comments or documentation, white
+space separated.  If column name contains spaces it must be enclosed in
+double quotes.  Names containing space characters are not recommended,
+however, as it is generally troublesome and error prone. A good
+substitute is the underscore character (_).
+
+<P>
+     Lines that start with a sharp character '#' are skipped, as are
+blank lines.  To start a column name with a sharp character '#'  the
+name must be enclosed in double quotes.  (but this is not recommended).
+
+<P>
+     The number of columns in the header is normally reported on STDERR.
+<P>
+     This operator reads an rdbtable via STDIN and writes an rdbtable
+via STDOUT.  Options may be abbreviated. This operator uses the RDB
+operator: valid.
+
+<P>
+Options:
+<UL>
+<LI> -add - Add the header to an rdbtable instead of replacing it.
+
+<LI> -copy - Copies the header from 'file.tpl' instead of generating it.
+             In this case 'file.tpl` is (at least a header of) an rdbtable,
+             NOT a template file.
+
+<LI> -del - Delete the rdbtable header instead of replacing it.
+
+<LI> -gen - Generate header only, no rdbtable read.
+
+<LI> -help - Print this help information.
+
+<LI> -ndoc - Documentation in template file is NOT to be included in the second
+             line of the header (included by default).
+
+<LI> -quiet - No messages printed on STDERR.
+
+<LI> -rdb - Treat 'file.tpl' as an rdbtable, use data in columns two and
+             three to make the header.
+
+<LI> -templ - Generate a template file from the header of the Table, on STDOUT.
+</UL>
+
+<P>
+     As an example, to generate a template file named 'new.tpl' from the
+rdbtable (named sample) from the DATA section, the command would be:
+
+<PRE>
+        headchg  -templ  &lt;  sample  &gt;  new.tpl
+</PRE>
+
+The contents of file 'new.tpl' would then be:
+<PRE>
+        0                 NAME  6
+        1                COUNT  5N
+        2                  TYP  4
+        3                  AMT  5N
+        4                OTHER  8
+        5                RIGHT  8&gt;
+</PRE>
+
+To change the header of rdbtable 'sample', the procedure is to edit the
+file 'new.tpl', and then run 'headchg' using the modified file.  For
+example, to change the names so that only the first letters are upper
+case and to make column 'OTHER' numeric, edit file 'new.tpl' so it looks
+like the following:
+
+<PRE>
+        0                 Name  6      All names are first letter upper case.
+        1                Count  5N
+        2                  Typ  4
+        3                  Amt  5N
+        4                Other  8N     Now numeric.
+        5                Right  8&gt;
+</PRE>
+
+Note the index in the zeroth column and the documentation in the fourth
+column, both of which are optional, but recommended.  The command to
+change the header of rdbtable 'sample' and make a new rdbtable called
+'new.sample' would be:
+
+<PRE>
+        headchg  new.tpl  &lt;  sample  &gt;  new.sample
+</PRE>
+
+</BODY>

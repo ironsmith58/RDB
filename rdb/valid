@@ -1,0 +1,167 @@
+#! /usr/bin/perl
+$RCS_ID = '$Id: valid,v 2.8 1993/06/10 16:26:32 hobbs Exp $' ;
+$0 =~ s-.*/-- ;
+$SEP = '|' ;
+$HelpInfo = <<EOH ;
+
+	    RDB operator: $0
+
+Usage:  $0  [options]  [rdbtable ...]
+
+Options:
+    -help    Print this help info.
+    -l[x]    List exact data values with visible delimiters, using 'x' as the
+	     delimiter. The value of 'x' may be multi-char, default is "$SEP".
+    -nw	     (Default) No warning messages shown. The total number of any
+	     warning conditions that exist is shown.
+    -size    Report max size of actual data in each column.
+    -templ   Generate a template file from the header of the table, on STDOUT.
+	     Does NOT check the body of the table.
+    -w       Print all warning messages.
+
+Validates the structure of the rdbtable. Checks for consistent number of data
+values per line, max width of column names and data values, and checks data
+values for content type in defined numeric columns. The first type of error
+above is a serious structure error; the others are only warnings.
+
+Reads from STDIN if rdbtables are not given. Options may be abbreviated.
+
+$RCS_ID
+EOH
+$NOW++ ;
+while ( $ARGV[0] =~ /^-/ ) {				# Get args
+    $_ = shift ;
+    if( /^-h.*/ ){ print $HelpInfo ; exit 1 ; }
+    if( /-l(.*)/ ){ $LST++ ; $SEP = $1 if $1 ; next ; }
+    if( /-n.*/ ){ $NOW++ ; next ; }
+    if( /-s.*/ ){ $MAXSZ++ ; next ; }
+    if( /-t.*/ ){ $TPL++ ; next ; }
+    if( /-w.*/ ){ $NOW = 0 ; next ; }
+    die "\nBad arg: $_\n", "For help type \"$0 -help\".\n" ; 
+}
+if( @ARGV == 0 ){
+    while(<STDIN>){
+	if( /^\s*#/ ){			# comment 
+	    push( @hdrv, $_ ) ; next; }
+	last if $TPL && $lln >= 2 ;
+	&chk ; }
+    &fin ; }
+else{
+    $ARGCNT = @ARGV ;
+    while( $file = shift ){
+	open( IN, $file ) || die "\nCan't open file: $file\n" ;
+	$dis = $lln = $wrn1 = $wrn2 = $err = 0 ; @hdrv = @wdth = @dtyp = () ;
+	print "==== Checking: $file ...\n" if $ARGCNT > 1 ;
+	while(<IN>){
+	    if( /^\s*#/ ){		# comment 
+		push( @hdrv, $_ ) ; next; }
+	    last if $TPL && $lln >= 2 ;
+	    &chk ; }
+	&fin ;
+    }
+}
+exit $toterr ;
+
+sub chk{				# check current line, $_
+    $lln++ ;
+    chop ;
+    $y = tr/\t/\t/ +1 ;
+    if( $lln <= 2 ){
+	@F = split( /\t/, $_ );
+	if( $lln == 1 ){
+	    @hdrs = @F ;		# col names
+	    $nrf = $y ;	# nr fields per line
+	    if( $y ne @F ){
+		print ">>> NULL field in COLUMN NAME line of header\n" ;
+		$err++ ; }
+	    for $_ (@hdrs){		# chk col names
+		if( /^[#-]/ ){
+		    print ">>> Bad COLUMN NAME: $_\n" ;
+		    $wrn1++ ; }
+		# elsif( ! /[a-zA-Z]/ ){ }
+	    }
+	    &println if $LST ; }
+	if( $lln == 2 ){
+	    @defn = @F ;		# definitions
+	    if( $y ne @F ){
+		print ">>> NULL field in DEFINITION line of header\n" ;
+		$err++ ; }
+	    if( $y != $nrf ){
+		$err++ ;
+		print ">>> Bad nr fields in DEFINITION line of header: $y\n" ;}
+	    for $_ (@F){
+		if( /(\d+)/ ){			# column width
+		    push( @wdth, $1 ) ; }
+		else{
+		    push( @wdth, length($_) ) ; }
+		$dis += $wdth[$#wdth] +1 ;
+		if( /(\S+)/ && $1 =~ /N/i ){	# data type
+		    push( @dtyp, "N" ) ; }
+		else{
+		    push( @dtyp, "S" ) ; }
+	    }
+	    $dis-- ;
+	    for ( $i=0; $i <= $#hdrs; $i++ ){
+		if( length($hdrs[$i]) > $wdth[$i] ){
+		    print "    Column name too long: $hdrs[$i]\n" if ! $NOW ;
+		    $wrn1++ ; }
+	    }
+	    &println if $LST ;
+	    if( $TPL ){
+		print @hdrv ;
+		$k = 0 ;
+		for $_ ( @hdrs ){
+		    printf( "%2d %20s  %s\n", $k++, $_, shift(@F)) ; }
+	    }
+	}
+	return ;
+    }						# data lines
+    @F = split( /\t/, $_, $nrf );
+    if( $y != $nrf ){
+	print ">>> Line: $., Bad nr fields: $y\n" ;
+	$err++ ; }
+    for( $i=0; $i <= $#F; $i++ ){
+	$wd = length($F[$i]) ;
+	if( $MAXSZ ){
+	    $maxsz[$i] = $wd if $wd > $maxsz[$i] ;
+	}
+	if( $wd > $wdth[$i] ){
+	    printf( "    Line: %d, Column: %s, Data too long(%d) \"%s\"\n",
+		$., $hdrs[$i], length($F[$i]), $F[$i] ) if ! $NOW ;
+	    $wrn1++ ;
+	}
+	if( $dtyp[$i] eq "N" ){	# chk type numeric
+	    if( $F[$i] =~ /[^0-9Ee+-. ]/ ){
+		printf( "    Line: %d, Column: %s, Bad Numeric data \"%s\"\n",
+		    $., $hdrs[$i], $F[$i] ) if ! $NOW ;
+		$wrn2++ ;
+	    }
+	}
+    }
+    &println if $LST ;
+}
+sub fin{					# finish up
+    return if $TPL ;
+    if( $MAXSZ ){
+	print @hdrv ;
+	$k = 0 ;
+	for $_ ( @hdrs ){
+	    @t = split( ' ', $defn[$k], 2 ) ;
+	    printf( "%2d %20s  %-3s %s %s\n",
+		$k, $_, $t[0], $maxsz[$k], $t[1] ) ;
+	    $k++ ; }
+    }
+    $y = @hdrv +2 ;	# nr lines in header
+    $x = $lln -2 ;	# nr lines in body
+    print "Columns: $nrf/($dis), Rows: $y/$x, " ;
+    if( ! $err && ! $wrn1 && ! $wrn2 ){ print "rdbtable ok" ; }
+    else{
+	if( $wrn1 || $wrn2 ){ print "WARNINGS: $wrn1/$wrn2, " ; }
+	if( $err ){ print ">>> STRUCTURE ERRORS: $err, <<< " ; }
+    }
+    print ": $file\n" ;
+    $toterr += $err ;	# total errors
+}
+sub println {
+    print join( $SEP, @F ), "\n" ;
+}

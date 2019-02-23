@@ -1,0 +1,55 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Introduction</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H1>Introduction</H1>
+<P>
+     A good question one could ask is "With all the relational database
+management systems available today, why do we need another one?" There
+are five reasons. They are:
+<P>
+<UL>
+<LI>     RDB is easy to use by non-computer people. The concept is
+         straight forward and logical. To select rows of data, the 'row'
+         operator is used; to select columns of data, the 'column'
+         operator is used.
+<LI>     The data is highly portable to and from other types of
+         machines, like Macintoshes or MSDOS computers.
+<LI>     The system will run on any UNIX machine (that has the PERL
+         Programming Language).
+<LI>     The system can work on intermediate data, which will later be
+         put into a commercial RDBMS, like INGRES.
+<LI>     RDB essentially has no arbitrary limits, and can work where
+         INGRES can't.  For example there is no limit on data field
+         size, the number of columns, or file size.
+</UL>
+
+<P>
+     A more through discussion of why this type of relational database
+structure makes sense is found in the book, "UNIX Relational Database
+Management", Reference #2.
+
+<P>
+     It is assumed that the reader has at least a minimum knowledge of
+the UNIX Operating System, including knowledge of Input/Outout
+redirection (e.g., STDIN, STDOUT, pipes).
+
+<P>
+     The RDB system was implemented in the PERL programming language on
+a  SUN Sparc I computer.
+
+<P>
+     This document presents information in the following order: The DATA
+section describes the structure of the data, with examples.  There is a
+general discussion about operators in the section on OPERATORS, followed
+by several sub-sections, one for each operator in alphabetic order.
+Each has detailed instructions for use, and examples.  There are
+sections describing selection of information using multiple operators,
+producing reports, and generating new rdbtables (data files in RDB
+format).
+
+</BODY>

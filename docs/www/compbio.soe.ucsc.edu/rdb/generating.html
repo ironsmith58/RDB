@@ -1,0 +1,158 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Generating or Modifing RDBTables</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H1>Generating or Modifing RDBTables</H1>
+
+<H2>GENERATING NEW RDBTABLES</H2>
+
+<P>
+     Any editor may be used to construct or modify an rdbtable, since it
+is a regular UNIX file, and this 'direct editing' method is occasionally
+used, especially for small amounts of data.  However, avoid using an
+editor that destroys TAB characters, like the RAND 'e' editor.
+
+<P>
+     To generate a new rdbtable the best plan (and usually the safest
+one) is to first generate a template file, then convert it to rdbtable
+format and add the rows of data.  Any convenient editor may be used to
+generate a template file.  To convert it to an rdbtable the command
+'headchg -gen' may be used, which will produce an empty rdbtable.  Next
+use the operator 'etbl' to edit in rows of data.
+
+<P>
+     An alternate method is to generate a template file with an editor
+and then use the command 'dataent -init template_file' to enter the rows
+of data.
+
+<P>
+     A typical template file is shown below:
+
+<PRE>
+# These are lines of table documentation. They can be of any length,
+# and any number of such lines may exist.
+# Each line must start correctly, e.g with "# " or " #". Any number of
+# space characters may preceed the sharp sign in the second case above.
+0       Name  24   Name of item
+1       Type   1   Type: 1,2,3,7,9,A,B,X
+2      Count   3N  Number of items
+3          K   1   Constant modifier
+4        SS7   2   Special status for type 7
+5       Size  12N  In Kilobytes
+</PRE>
+
+<P>
+     It makes sense to have all significant or critical documentation
+about an rdbtable embedded in the rdbtable, rather than in some other
+place.  The above template file contains the usual elements to describe
+a table of six columns: table documentation (the comment lines that each
+start with a sharp sign '#'), index number (the first number on each of
+the column lines), column name ("Name", "Type", "Count", ...), column
+definition ("24", "1", "3N", ...), and column documentation for each
+column (the text at the end of each  column line).
+
+<P>
+     Note that the index number, column name, and column definition all
+consist of contiguous characters, each forming a word separated by
+whitespace.  Also note that there is one or more space characters after
+the column definition and before the column documentation.  That is, the
+column documentation starts with the fourth word on the line.
+
+<P>
+     When the template file is converted into an rdbtable, all
+documentation will remain in the header (although the column
+documentation may be hard to read if there are many columns).  At any
+time the entire header, including documentation, can be viewed by using
+the command 'valid -templ &lt; rdbtable' (or 'headchg -templ &lt; rdbtable).
+The output from either command will be essentially like the above
+example.
+
+<H2>Modifying Existing RDBtables</H2>
+
+     Basically there are three ways to modify an existing rdbtable:  Use
+'dataent', 'etbl', or 'mergetbl'.  The operator 'dataent' can only add
+new rows of data, and they are added at the end of the existing table.
+Therefore the table may need sorting after the modification process is
+done.  The following command might be used to update an rdbtable using
+'dataent':
+
+<PRE>
+    dataent  rdbtable
+</PRE>
+
+<P>
+     The operator 'etbl' can be used to add new rows, change existing
+rows, or delete existing rows of data in an rdbtable.  To modify an
+rdbtable 'etbl' can be used in either column or list form.  The choice
+of form to use depends somewhat on the structure of the rdbtable.  If
+the rdbtable has several columns of relatively narrow data (that will
+all fit in the width of the current window or terminal) and also several
+very wide columns (none of which will fit) and changes need to be made
+to some of the narrow columns, then it makes sense to use 'etbl' on the
+desired narrow columns in 'column' form, as in:
+
+<PRE>
+    etbl  table  narrow_cola  narrow_colb  ...
+</PRE>
+
+If changes need to be made to some of the wide columns then use 'etbl'
+in 'list' form on the wide columns, plus any key columns necessary, as
+in:
+
+<PRE>
+    etbl  -list  table  control_col  ...  wide_cola  wide_colb  ...
+</PRE>
+
+<P>
+     After editing an rdbtable it is always recommended that the
+structure of the rdbtable be checked with the operator 'valid'.  If
+there are data values that are longer than the defined column width, use
+the command 'valid -n' to avoid many warning messages.
+
+<P>
+     The 'mergetbl' process actually involves other operators like
+'search', and 'etbl', and works only when the existing rdbtable is
+sorted on one or more columns (which is a fairly common case).  The
+process includes selecting rows from an existing sorted rdbtable (using
+'search') into a small rdbtable which is easy to edit (using 'etbl') and
+then combining the two rdbtables again (using 'mergetbl'). Since 'etbl'
+is used modifications may include changes, additions, or delitions of
+rows.  Also note that 'mergetbl' keeps the final table in sort order.
+
+<P>
+     The difference is that 'search' is much faster than 'row' or
+'etbl', the editing is done on a table of conveniently small size, and
+that the 'mergetbl' operation can be done in the background.  Remember
+that whether one uses 'mergetbl' or 'etbl', putting the data back
+together after editing requires the entire original table to be passed,
+which can take some time if the original rdbtable is large.
+
+
+<H2>CONCATENATING RDBTABLES</H2>
+
+The need to concatenate rdbtables comes up every so often and although
+it is simple to do it may not be obvious.  The UNIX 'cat' command can
+not be used as it would result in duplicating the header and thus make
+an invalid rdbtable.  And of course, only rdbtables with the same header
+should be concatenated, otherwise an invalid rdbtable would result (in
+this case it could be a gross inconsistency if the number of columns
+were different).  If we have two rdbtables, TABA and TABB, then to
+concatenate TABB onto the end of TABA we use the command:
+
+<PRE>
+        headchg -del &lt; TABB &gt;&gt; TABA
+</PRE>
+
+Note that this avoids duplicating the header.  Note also that in this
+case the operator 'headchg' does not  use a template file.
+
+<P>
+     Note also that the operator 'mergetbl' may be used to merge two
+like rdbtables based on a key of one or more columns.  In this case
+however the two rdbtables must be sorted on the key.
+
+</BODY>

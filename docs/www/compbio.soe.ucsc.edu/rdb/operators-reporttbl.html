@@ -1,0 +1,265 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Operators: reporttbl</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H2>reporttbl</H2>
+Usage: <CODE>reporttbl  [options]  file.frm</CODE>
+
+<P>
+     Formats and prints an arbitrary style report, with the format
+specified in the file "file.frm". A page header may be specified.
+
+<P>
+     This RDB operator reads an rdbtable from STDIN and writes a
+formatted report on STDOUT. Options may be abbreviated.
+
+<P>
+Options:
+<UL>
+<LI> -help - Print this help information.
+
+<LI> -pN - Page size in of N lines. Default is 60 lines.
+
+             A value of zero '-p0' will turn paging off.
+</UL>
+
+<P>
+     The "file.frm" file (or form file) shows pictorially one 'record'
+of output, which will contain data from one row of an rdbtable.  An
+optional page header may be defined as well.
+
+<P>
+     The form file contains regular text, picture fields, and associated
+column names.  Regular text prints just as given. Picture fields define
+the  width and justification for printing a data value from a column.
+The names of the associated columns are listed on the line following the
+picture fields and in the same order.  Note that this file should not
+contain any TAB characters; space characters should be used instead.
+
+<P>
+     Picture fields start with either '@' or '^' and are followed by one
+of three primary characters to define the width of the field.  The three
+characters are '&lt;', '&gt;', or '|' to specify left, right, or  center
+justification respectively.  There is also an alternate right
+justification character for printing numeric data, with optional decimal
+point.  The character is the sharp sign '#', and a period specifies the
+decimal point placement, as in '@########.##'.
+
+<P>
+     A numeric picture field has the following features:
+<UL>
+<LI> Data is lined up on the decimal point (if any).
+
+<LI> Automatic rounding of data.
+
+<LI> Automatic conversion of data in scientific notation.
+</UL>
+
+
+
+
+<P>
+     Numeric Data may be in the form of integers, fixed point, or
+scientific notation' e.g. 12345, 4567.345, or  1.678E17.
+
+<P>
+     Normally picture fields start with the '@' character. That means to
+put the referenced data value into the defined picture field, or as much
+of the data as will fit into the field, if the data is larger than the
+field.  If the field starts with the '^' character it means to repeat
+the field on as many lines as necessary in order to print the entire
+data value.  This is useful for large data fields, such as comments or
+free text.
+
+<P>
+     Instead of a column name there are some special names that can be
+used to have other information inserted. This are especially useful if
+there is a page header.  The special names and what they mean are:
+
+<UL>
+<LI> _pgnr_  -  current page number
+
+<LI> _date_  -  current date
+
+<LI> _rcnr_  -  current record number (row number)
+
+<LI> _`cmd arg1 ... argN`_  -  the UNIX command is executed once,
+         and its output is put into the associated picture field.  Note
+         that they are BACKTICKS (grave accents) not single quotes.
+
+<LI> _COLNAME_cd_ - the column documentation for column name
+         'COLNAME'.
+
+<LI> _tbld_ - the table documentation, all lines.
+
+<LI> _tbld_3.7_ - the table documentation, lines 3 thru 7. If either
+         first or second number is missing it means line 1  or the last
+         line of the header, respectively.
+</UL>
+
+An example of a form file for use with rdbtable 'sample' is shown in
+Table 13.
+
+<P>
+     The first and last lines (that start with 'format' or a single
+period) define the pictorial records and must be as shown. The first
+record defines the header and is optional. If this form file (named
+sample.frm) were used in the command:
+
+<PRE>
+        reporttbl  sample.frm  &lt;  sample
+</PRE>
+
+it would produce the one page report as in Table 14.
+
+<P>
+     For another example, one might want to have a date on a report in
+other than the standard date output format, and an idea of who executed
+the program, and have a reference count of the records being produced.
+The form file might be as in Table 15.  which could produce:
+
+
+<PRE>
+                                Table 13
+
+                    FORM FILE FOR RDBTABLE (SAMPLE)
+
+format top =
+Page @&gt;,            The Page Header     @&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+   _pgnr_                                       _date_
+
+.
+format =
+  Name:   @&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;          Type:  @&gt;&gt;&gt;&gt;
+               NAME                                 	     TYP
+                  Total: @&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;     Other:  @&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+                         AMT                        OTHER
+</PRE>
+
+
+
+<PRE>
+                                Table 14
+
+               PRINTING RDBTABLE (SAMPLE) WITH REPORTTBL
+
+Page  1,            The Page Header     Mon Dec  2 16:21:18 PST 1991
+
+  Name:   Bush                                        Type:      A
+                  Total: 133           Other:  Another
+  Name:   Hansen                                      Type:      A
+                  Total: 23            Other:  One
+  Name:   Jones                                       Type:      X
+                  Total: 77            Other:  Here
+  Name:   Perry                                       Type:      B
+                  Total: 244           Other:  And
+  Name:   Hart                                        Type:      D
+                  Total: 1111          Other:  So
+  Name:   Holmes                                      Type:      D
+                  Total: 1111          Other:  On
+
+</PRE>
+
+<PRE>
+                                Table 15
+
+                           ANOTHER FORM FILE
+
+format top =
+Run By: @&lt;&lt;&lt;&lt;&lt;&lt;&lt;        The Date/Time is    @&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+        _`whoami`_                           _`date "+%m/%d/%y %H:%M"`_
+.
+format =
+    RecordNr:  @&gt;&gt;      @&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+              _rcnr_    OTHER
+.
+
+
+Run By: hobbs           The Date/Time is    10/15/91 09:43
+
+    RecordNr:    1      Other data here
+    RecordNr:    2      and here,
+    RecordNr:    3      and so on.
+    ...         ...     ...
+</PRE>
+
+<P>
+     Another example shows how longer data values can be handled. If the
+form file (named sample2.frm) looks like Table 16, and if the following
+command is used:
+
+<PRE>
+        reporttbl  sample2.frm  &lt;  sample2
+</PRE>
+
+then the output would be as shown in Table 17.
+Note that since there were two picture fields that started with the '^'
+character on one line the length of output records varies according to
+the length of the two associated data values.
+
+
+<PRE>
+                                Table 16
+
+                    FORM FILE FOR RDBTABLE (SAMPLE2)
+
+format top =
+Page @&gt;,                Page Header here                 @&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+_pgnr_                                      _`date "+%m/%d/%y %H:%M"`_
+                Executed by @&lt;&lt;&lt;&lt;&lt;&lt;&lt; on: @&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+                            `whoami`     _`hostname`_
+
+format =
+    Name:   @&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;  Other: @&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;        Type: @&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+            NAME              OTHER                            TYP
+ Comment:   ^&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;    Long: ^&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;    Right: @&gt;&gt;&gt;&gt;&gt;&gt;&gt;
+            COMMENT                   LONG                     RIGHT
+=======================================================================
+</PRE>
+
+
+<PRE>
+                                Table 17
+
+               PRINTING RDBTABLE (SAMPLE2) WITH REPORTTBL
+
+Page  1,  		Page Header here   	         12/02/91 16:32
+                Executed by hobbs    on: id
+
+    Name:   Bush              Other: Another            Type: A
+ Comment:   A comment          Long: This a long        Right:     This
+            here.                    message for
+                                     test.
+=======================================================================
+    Name:   Hansen            Other: One                Type: A
+ Comment:   A longer           Long: This a long        Right:       Is
+            comment here.            message for
+                                     test.
+=======================================================================
+    Name:   Jones             Other: Here               Type: X
+ Comment:   A longer,          Long: Short test.        Right:       On
+            longer comment
+            here.
+=======================================================================
+    Name:   Perry             Other: And                Type: B
+ Comment:   A short comment    Long: This a long        Right:      The
+            here.                    message for
+                                     test.
+=======================================================================
+    Name:   Hart              Other: So                 Type: D
+ Comment:   Little here.       Long: Here too.          Right:    Right
+=======================================================================
+    Name:   Holmes            Other: On                 Type: D
+ Comment:   A comment here     Long: A short            Right:     Edge
+            that is a                message.
+            little ongoing,
+            so to speak.
+=======================================================================
+</PRE>
+
+
+</BODY>

@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Examples of Perl Expressions and Statements</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H1>Examples of Perl Expressions and Statements</H1>
+<P>
+     Following are some examples of PERL expressions and statements of
+the type that might be used with RDB operators, and their meaning.  Note
+that the operator 'row' takes a PERL expression while the operator
+'compute' takes a complete PERL statement.
+Expressions:
+
+<PRE>
+    COLA mat /XXX/
+                    -- column COLA contains the pattern 'XXX'.
+
+    COLA nmat /XXX/
+                    -- column COLA does NOT contain the pattern 'XXX'.
+
+    COLA mat /^XXX/
+                    -- column COLA starts with the pattern 'XXX'.
+
+    COLA mat /XXX$/
+                    -- column COLA ends with the pattern 'XXX'.
+
+    COLA ne null
+                    -- column COLA is not null (but it could contain blanks).
+
+    COLA mat /^\s*$/
+                    -- column COLA is null or contains only blank space.
+
+    COLA eq 'YYY'
+                    -- column COLA equals the literal 'YYY'.
+
+    COLA mat /X..Y/
+                    -- column COLA contains the pattern 'X..Y', which means
+                    'X', followed by any two characters, then 'Y'.
+
+    COLA mat /X.*Y/
+                    -- column COLA contains the pattern 'X.*Y', which means
+                    'X', followed by any number of (including zero)
+                    characters, then 'Y'.
+
+    NUMC eq 12
+                    -- column NUMC equals 12.
+
+    COLA ne null &amp;&amp; COLB ne null
+                    -- column COLA and column COLB are not null (empty).
+
+    COLA eq 'ABC' || COLA eq 'BCD'
+                    -- column COLA equals the literal 'ABC' or column COLB
+                    equals the literal 'BCD'
+</PRE>
+
+Statements:
+
+<PRE>
+    COLA = COLB ;
+                    -- set the value of column COLA to that of COLB.
+
+    NUMC = NUMC - 7 ;
+                    -- decrement the value of column NUMC by 7.
+
+    NUMC -= 7 ;
+                    -- (same as above).
+
+    NUMC = NUMC / 4 ;
+                    -- divide the value of column NUMC by 4.
+
+    NUMC *= 2.3 ;
+                    -- multiply the value of column NUMC by 2.3.
+
+    $abc++ ;
+                    -- increment the value of variable $abc by 1.
+
+    ++$abc ;
+                    -- (same as above).
+
+    COLA = 'WORDS' ;
+                    -- set the value of column COLA to the literal 'WORDS'.
+
+    NUMC = 12 ;
+                    -- set the value of column NUMC to 12.
+
+    if( COLA mat /XXX/ ){ COLA .= 'YYY' ; }
+                    -- If column COLA contains the pattern 'XXX' then add
+                    the literal 'YYY' to the end.
+
+    COLA .= 'YYY' if COLA =~ /XXX/ ;
+                    -- (same as above).
+
+    if( COLA eq 'ABC' || COLA eq 'BCD' ){ COLA = 'XXX' ; }
+                    -- If column COLA equals 'ABC' or 'BCD' set the value
+                    of COLA to 'XXX'.
+</PRE>
+
+</BODY>

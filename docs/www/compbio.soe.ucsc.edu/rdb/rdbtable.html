@@ -1,0 +1,155 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Data (rdbtable)</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H1>Data (rdbtable)</H1>
+<P>
+     The data is contained in regular UNIX, ASCII files and therefore
+can be manipulated by regular UNIX utilities, e.g. grep, ls, wc, mv, cp,
+cat, more, less, head, RCS, and editors like the RAND editor 'e', vi,
+etc.  A good way to view the data of course, would be to use the RDB
+operator that prints such datafiles 'ptbl'.
+
+<P>
+     The relation, or table structure is achieved by separating the
+columns  with ASCII TAB characters, and terminating the rows with ASCII
+NEWLINE characters.  That is, each row of data in a file contains the
+data values (a data field) separated by TAB characters and terminated
+with a NEWLINE character.  Therefore a fundamental rule is that data
+values must NOT contain TAB characters.
+
+<P>
+     The first section of the file, called the header, contains the file
+structure information used by the operators.  The header also contains
+optional embedded documentation relating to the entire datafile (table
+documentation) and/or each data column (column documentation).  The rest
+of the file, called the body, contains the actual data values.  A file
+of data, so structured, is said to be an 'rdbtable'.
+
+<P>
+     The header consists of two or more lines.  There is an optional
+number (zero or more) of lines of table documentation followed by
+exactally two lines that contain the structure information: the column
+name row and the column definition row.  The table documentation lines
+start with either a sharp sign (#) followed by a space character, or one
+or more space characters followed by a sharp sign (#).  The rest of each
+line may contain any documentation desired.  Note that the table
+documentation lines are the only lines in an rdbtable that are not
+required to conform to the table structure defined above.  The fields in
+the column name row contain the names of each column.  The fields in the
+column definition row contain the data definitions and optional column
+documentation for each column.
+
+<P>
+     The column names are case sensitive, i.e. 'COUNT' is different from
+'Count'.  The guideline for characters that may be used in column names
+is that alphabetic, numeric, and non-alphanumeric characters that are
+not special to the UNIX shell are good choices.  Column names must
+include at least one alphabetic character.  It is highly recommended
+(but not required) that column names start with an alphabetic or numeric
+character.
+
+<P>
+     Non-alphanumeric characters that are acceptable in column names are
+the percent sign (%) colon (:) at sign (@) equals (=) comma (,) and dot
+(.).  The sharp sign (#) underscore (_) and dash (-) characters may also
+be used but they must not be the first character in a column name.  The
+TAB character must never be used in column names, nor should internal
+spaces or UNIX I/O redirection characters (&lt;,&gt;,|) be used.
+
+<P>
+     The data definitions include column width, data type, and
+justification.  The column width must be explicitly specified; the
+others are optional  and are frequently specified by default.
+
+<P>
+     The data definitions are specified by adjacent characters in a
+single word.  The width of each field is specified by a numeric count.
+The type of data is "string", "numeric", or "month".  The types are
+specified by an 'S', 'N', or 'M' respectively, and the default is type
+string.  Printout justification is 'left', or 'right', and is specified
+by an '&lt;' or '&gt;' character respectively.  If not specified,
+data types
+string and month will be left justified and type numeric will be right
+justified.
+
+<P>
+     Note that column width is used primarily by the operator 'ptbl' and
+in no way limits the actual data size.  It is not an error if some
+actual data in a column is wider than the defined width; a listing
+produced with 'ptbl' may be  out of alignment however.
+
+<P>
+     The optional documentation for each column follows the data
+definition word in the field.  There must be one or more space
+characters after the data definition word and before the column
+documentation; the column documentation may be as long as necessary.
+Note that the data definition and the optional column documentation  are
+contained in a single field in the row.
+
+<P>
+     If the column name and/or column definition rows contain much
+information and/or column documentation they can become long and
+confusing to read. However the  operators 'valid' and 'headchg' have
+options to print the header contents as a 'template' file, an organized
+list of information about the header.
+
+<P>
+     A sample rdbtable (named sample) that will be used in  later
+examples is shown in Table 1.  The picture in Table 1 is for
+illustrative purposes; what the file would actually look like is shown
+in Table 2, where a TAB character is represented by '&lt;T&gt;'
+and a NEWLINE character is represented by '&lt;N&gt;'.
+
+<P>
+     It is important to note that only actual data is stored in the data
+fields, with no leading or trailing space characters. This fact can
+(and usually does) have a major effect on the size of the resulting
+datafiles (rdbtables) compared to data stored in "fixed field width"
+systems.  The datafiles in RDB are almost always smaller, sometimes
+dramatically smaller.
+
+<PRE>
+                                Table 1
+                           RDBTABLE (SAMPLE)
+
+        # Table documentation lines. These describe and
+        # identify the rdbtable contents.
+        # They may be read by many normal UNIX utilities,
+        # which is useful to easily identify a file.
+        # May also contain RCS or SCCS control information.
+        NAME    COUNT   TYP     AMT     OTHER   RIGHT
+        6       5N      3       5N      8       8&gt;
+        Bush    44      A       133     Another This
+        Hansen  44      A       23      One     Is
+        Jones   77      X       77      Here    On
+        Perry   77      B       244     And     The
+        Hart    77      D       1111    So      Right
+        Holmes  65      D       1111    On      Edge
+
+</PRE>
+
+<PRE>
+                                Table 2
+                    RDBTABLE (SAMPLE) ACTUAL CONTENT
+
+        # Table documentation lines. These describe and&lt;N&gt;
+        # identify the rdbtable contents.&lt;N&gt;
+        # They may be read by many normal UNIX utilities,&lt;N&gt;
+        # which is useful to easily identify a file.&lt;N&gt;
+        # May also contain RCS or SCCS control information.&lt;N&gt;
+        NAME&lt;T&gt;COUNT&lt;T&gt;TYP&lt;T&gt;AMT&lt;T&gt;OTHER&lt;T&gt;RIGHT&lt;N&gt;
+        6&lt;T&gt;5N&lt;T&gt;3&lt;T&gt;5N&lt;T&gt;8&lt;T&gt;8&gt;&lt;N&gt;
+        Bush&lt;T&gt;44&lt;T&gt;A&lt;T&gt;133&lt;T&gt;Another&lt;T&gt;This&lt;N&gt;
+        Hansen&lt;T&gt;44&lt;T&gt;A&lt;T&gt;23&lt;T&gt;One&lt;T&gt;Is&lt;N&gt;
+        Jones&lt;T&gt;77&lt;T&gt;X&lt;T&gt;77&lt;T&gt;Here&lt;T&gt;On&lt;N&gt;
+        Perry&lt;T&gt;77&lt;T&gt;B&lt;T&gt;244&lt;T&gt;And&lt;T&gt;The&lt;N&gt;
+        Hart&lt;T&gt;77&lt;T&gt;D&lt;T&gt;1111&lt;T&gt;So&lt;T&gt;Right&lt;N&gt;
+        Holmes&lt;T&gt;65&lt;T&gt;D&lt;T&gt;1111&lt;T&gt;On&lt;T&gt;Edge&lt;N&gt;
+
+</PRE>
+</BODY>

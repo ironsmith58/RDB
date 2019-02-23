@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Operators: column</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H2>column</H2>
+Usage: <CODE>column  [options]  list</CODE>
+
+<P>
+     Selects columns by name (and order) and outputs an rdbtable with
+these columns.  Can effectively select, order, add, delete, or duplicate
+columns.
+
+<P>
+     The value 'list' is normally a list of column names.  If 'list'
+contains a triplicate of the form '-c NAME NEW' then column name 'NAME'
+will be changed to 'NEW'.  If 'list' contains a triplicate of the form
+'-a  NAME  DEFN' then a new (null) column is added, at that point in the
+list of column names, with name 'NAME' and definition 'DEFN'.
+
+<P>
+     This RDB operator reads an rdbtable from STDIN and writes an
+rdbtable to STDOUT.  Options may be abbreviated.
+
+<P>
+Options:
+<UL>
+<LI> -edit - Edit option. Used by etbl.
+
+<LI> -help - Print this help information.
+
+<LI> -v - Inverse option. Selects all columns except those named.
+</UL>
+
+<P>
+     As an example using the sample rdbtable from the DATA section
+(named sample), to select columns named 'NAME' and 'COUNT' the command
+would be:
+
+<PRE>
+        column  NAME  COUNT  &lt;  sample
+</PRE>
+
+To select all columns except column 'NAME' the command would be:
+
+<PRE>
+        column  -v  NAME  &lt;  sample
+</PRE>
+
+To add a new column named 'LENGTH' with a size of 10 the command would
+be:
+<PRE>
+        column  -v  -a  LENGTH  10  &lt;  sample
+</PRE>
+
+Note that to include documentation with the new column definition the
+command would be:
+<PRE>
+        column  -v  -a  LENGTH  '10 length in meters'  &lt;  sample
+</PRE>
+
+The '10 length in meters' must be quoted so that it will be treated  as
+a single token.
+
+
+</BODY>

@@ -1,0 +1,51 @@
+#! /usr/bin/perl
+unshift(INC,'.') ;
+
+do 'cterm.pl' || die "$0 can't include cterm.pl\n" ;
+
+&startCterm(@ARGV) ;
+
+&initscr ; &nonl ; &cbreak ; &noecho ;
+&leaveok($stdscr,0) ; &refresh ;
+&keypad($stdscr,1) if defined $curfun{'keypad'} ;
+
+&editq($curcon{'KEY_UP'}) if defined $curcon{'KEY_UP'} ;
+&editq($curcon{'KEY_DOWN'}) if defined $curcon{'KEY_DOWN'} ;
+&editq($curcon{'KEY_RET'}) ;
+&editl(2) ;
+&editr(6) ;
+
+$japh = 'just another perl hacker' ;
+$len = length($japh) ;
+
+if ( defined $curfun{'newwin'} )
+  { $win = &newwin(5,$len+4,int($LINES/2)-2,int(($COLS-$len)/2)-2) ;
+    &box($win,ord('|'),ord('-')) ;
+    &mvwaddstr($win,2,2,$japh) ;
+    &wrefresh($win) ;
+  }
+else
+  { $japh = "Hmm, no subwindows, never mind." ;
+    $len = length($japh) ;
+    &mvaddstr(int($LINES/2)-2,int(($COLS-$len)/2)-2,$japh) ;
+  }
+
+&mvaddstr(2,4,'quit edit mode by KEY_RET, KEY_DOWN or KEY_UP') ;
+
+($string,$quitKey) = &edit('hello world',0,4,4,20,'|<>|') ;
+
+$killchar = &killchar ;
+$erasechar = &erasechar ;
+
+&endwin ;
+&finishCterm ;
+
+$quitKey = &ch2str($quitKey) ;
+
+print "hello again, cterm is gone, we are back in perl\n" ;
+print "edit returned ($string,$quitKey)\n" ;
+print "cterm used:\n" ;
+print "LINES:     $LINES\n" ;
+print "COLS:      $COLS\n" ;
+print "killchar:  $killchar\n" ;
+print "erasechar: $erasechar\n" ;

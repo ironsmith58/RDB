@@ -1,0 +1,147 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Operators: jointbl</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H2>jointbl</H2>
+Usage: <CODE>jointbl  [options]  col.name[=col.name_2]  rdbtable_2  &lt; rdbtable_1</CODE>
+
+<P>
+     Does a join of two rdbtables on the column(s) specified.  The
+default is a "natural" join, with optional "Master/Detail" or cartesian
+(cross-product) type joins.  Options may be abbreviated.
+
+<P>
+Options:
+<UL>
+
+<LI> -c - Do a cartesian (cross-product) join.
+
+<LI> -help - Print this help information.
+
+<LI> -md - Do a "Master/Detail" join rather than a natural join.
+
+             The Table from STDIN is the master.
+</UL>
+
+<P>
+     A natural join produces a new rdbtable that contains only rows from
+the input rdbtables that match on the specified columns (key columns). A
+master-detail join produces a new rdbtable that contains all rows from
+the master rdbtable and those rows from the secondary rdbtable that
+match.  A cartesian join produces an rdbtable that contains all rows of
+both input rdbtables.
+
+<P>
+     Each item in the list of column(s) may specify column names that
+are different in the two rdbtables, i.e. '=column_2', if given, refers
+to a name in rdbtable_2 that corresponds to 'column' in rdbtable_1.  If
+'=column_2' is not given it means that the corresponding column name in
+both rdbtables is the same.
+
+<P>
+     If different column names are specified, the name of the join
+columns in the output rdbtable will be from rdbtable_1.
+
+<P>
+     Note that the two rdbtables must be sorted on the columns specified
+in order for a join operation to function correctly.
+
+<P>
+     The order of columns in the output rdbtable will be: first the join
+columns, then the other columns from rdbtable_1, then the other columns
+from rdbtable_2.
+
+<P>
+     This operator reads an rdbtable via STDIN and writes an rdbtable
+via STDOUT.
+
+<P>
+     If we have the rdbtable (named samplej) here:
+
+<PRE>
+name	nr	typ	amt
+6	2	4	4
+Bush	1	A	133
+Bush	2	A	134
+Hansen	3	A	143
+Hobbs	4	B	144
+Hobbs	5	B	144
+Jones	6	C	155
+Perry	7	D	244
+Perry	8	D	311
+</PRE>
+
+and the rdbtable (named samplej2) here:
+
+<PRE>
+name	cnt	typ	amt
+6	5N	4	5N
+Hobbs	41	A	141
+Hobbs	42	BB	142
+Hobbs	51	BB	144
+Hobbs	43	CC	143
+</PRE>
+
+then the command to do a natural join of samplej and samplej2 on  column
+name is:
+
+<PRE>
+        jointbl  name  samplej2  &lt;  samplej
+</PRE>
+
+and the results is shown in Table 6.  The command to do a "master-
+detail" join of the same two rdbtables on column name is:
+
+<PRE>
+        jointbl  -md  name  samplej2  &lt;  samplej
+</PRE>
+
+
+<PRE>
+                                Table 6
+
+             NATURAL JOIN OF RDBTABLES SAMPLEJ AND SAMPLEJ2
+
+        name    nr      typ     amt     cnt     typ     amt
+        6       2       4       4       5N      4       5N
+        Hobbs   4       B       144     41      A       141
+        Hobbs   4       B       144     42      BB      142
+        Hobbs   4       B       144     51      BB      144
+        Hobbs   4       B       144     43      CC      143
+        Hobbs   5       B       144     41      A       141
+        Hobbs   5       B       144     42      BB      142
+        Hobbs   5       B       144     51      BB      144
+        Hobbs   5       B       144     43      CC      143
+</PRE>
+
+
+<PRE>
+                                Table 7
+
+          MASTER-DETAIL JOIN OF RDBTABLES SAMPLEJ AND SAMPLEJ2
+
+        name    nr      typ     amt     cnt     typ     amt
+        6       2       4       4       5N      4       5N
+        Bush    1       A       133
+        Bush    2       A       134
+        Hansen  3       A       143
+        Hobbs   4       B       144     41      A       141
+        Hobbs   4       B       144     42      BB      142
+        Hobbs   4       B       144     51      BB      144
+        Hobbs   4       B       144     43      CC      143
+        Hobbs   5       B       144     41      A       141
+        Hobbs   5       B       144     42      BB      142
+        Hobbs   5       B       144     51      BB      144
+        Hobbs   5       B       144     43      CC      143
+        Jones   6       C       155
+        Perry   7       D       244
+        Perry   8       D       311
+</PRE>
+
+and the results is shown in Table 7.
+
+</BODY>

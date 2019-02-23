@@ -1,0 +1,19 @@
+#! /usr/bin/perl
+# cterm example application
+# usage: perl try1
+# 'perl try1 LOG 1' will produce a cterm logfile LOG.
+
+unshift(@INC,'.') ;
+do 'cterm.pl' || die "$0 can't include cterm.pl\n" ;
+&startCterm(@ARGV) ; 
+&initscr ; &nonl ; &cbreak ; &noecho ;
+$japh = "just another perl hacker" ;
+&mvaddstr(int($LINES/2),int(($COLS-length($japh))/2),$japh) ;
+&mvaddstr($LINES-1,0,'hit any key to continue ') ;
+&refresh ;
+&getchR ;
+&clear ;
+&move(0,0) ;
+&refresh() ;
+&endwin ;
+&finishCterm ;

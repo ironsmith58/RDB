@@ -1,0 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Operators: subtotal</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H2>subtotal</H2>
+Usage: <CODE>subtotal  [options]  B_column  ...  -s  column  ...</CODE>
+
+<P>
+     This operator lists subtotals of specified column(s) whenever the
+value of specified break columns(s) (B_column(s)) changes.  A single
+break column will produce a sub-total of all specified columns on each
+line. If there is more than one break column given then in addition
+whenever the value of the first break column changes an additional line
+will be printed showing the sub-total for that group.
+
+<P>
+     If no break column is given the first column is used; if no sub-
+total column is given then all columns of type numeric are sub-totaled.
+
+<P>
+     This operator reads an rdbtable via STDIN and writes an rdbtable
+via STDOUT.  Options may be abbreviated.
+
+<P>
+Options:
+<UL>
+
+<LI> -help - Print this help information.
+</UL>
+
+Example rdbtable (named small):
+
+<PRE>
+        name      amt    typ   count  n
+        6         5N     4     5N     2
+        Hansen    39     A     23     3
+        Hansen    9      A     3      3
+        Hansen    9      B     3      4
+        Jones     42     B     144    5
+        Jones     4      B     14     5
+        Hart      9      C     3      5
+        Hart      2      C     55     6
+        Hart      2      D     55     6
+        Hobbs     57     X     7      4
+        Hobbs     5      X     57     4
+</PRE>
+
+The output from the command:
+
+<PRE>
+        subtotal  name  -s  amt  &lt;  small  |  ptbl
+</PRE>
+
+would be:
+
+<PRE>
+        name      amt
+        ------  -----
+        Hansen     57
+        Jones      46
+        Hart       13
+        Hobbs      62
+</PRE>
+
+The output from the command:
+
+<PRE>
+        subtotal  name  typ  -s  amt  count  &lt;  small  |  ptbl
+</PRE>
+
+is shown in Table 18.
+
+<PRE>
+                                Table 18
+
+                   OUTPUT FROM THE SUBTOTAL OPERATOR
+
+        name    typ     amt  count
+        ------  ----  -----  -----
+        Hansen  A        48     26
+        Hansen  B         9      3
+                         57     29
+
+        Jones   B        46    158
+                         46    158
+
+        Hart    C        11     58
+        Hart    D         2     55
+                         13    113
+
+        Hobbs   X        62     64
+                         62     64
+</PRE>
+
+</BODY>

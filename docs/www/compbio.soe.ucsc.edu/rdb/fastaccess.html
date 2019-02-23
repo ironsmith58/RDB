@@ -1,0 +1,32 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Fast Access Methods</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H1>Fast Access Methods</H1>
+
+<P>
+     The RDB operator 'search' may be used to execute one of two fast
+access methods (binary or hashtable search,  although currently only
+binary search is implemented).
+
+<P>
+     These methods are useful when the key field values of a number of
+rows in an existing, large rdbtable is known in advance, a common
+situation.
+
+<P>
+     One example of updating an rdbtable using these methods is as
+follows.  First, 'search' is used to quickly obtain a new, small
+rdbtable consisting of the desired rows from the existing, large
+rdbtable.  Then 'etbl' is used to update the data in the new rdbtable,
+including generating new rows, changing some rows, and marking certain
+rows for deletion, if desired.  The next stage would be to use
+'mergetbl' to combine the new and old rdbtables into a new, large
+rdbtable, which will still be in sort order (both the old rdbtable and
+the new, small one will still exist for backup and/or journaling
+purposes).  Note that the last step could be done in the background.
+</BODY>

@@ -1,0 +1,444 @@
+#! /usr/bin/perl
+$RCS_ID = '$Id: etbl,v 2.13 1996/04/11 12:58:34 hobbs Exp $' ;
+$0 =~ s-.*/-- ;
+$ED = "e" ;		# Default editor, after envt
+$LMIN = 50 ;		# min line length
+$LFSUF = ".LCK" ;	# lockfile suffix
+$HelpInfo = <<EOH ;
+
+		    RDB utility: $0
+
+Usage:  $0  [options]  rdbtable  [col_spec]  [line_spec]  [pat_spec]
+
+Options:
+    -c       Use "column" format for editing instead of "list" format.
+    -eNAME   Use the editor 'NAME'.
+    -help    Print this help info.
+    -l[N]    Use "list" format for editing instead of "column" format. If
+	     N is given it is the line length to use (min is $LMIN).
+	     This is the default editing format.
+    -npp     No postprocessing after return from the editor. The edited file
+	     is saved with a name of the form "etbl.t.nnnn" where "nnnn" is
+	     the process number.
+    -RCS     Force checkout of the rdbtable from RCS.
+
+    A "col_spec" is a list of column names.
+
+    A "line_spec" is a list of line numbers, of increasing value, optionally
+    separated by a dash to specify a range, e.g. "10-20". The form "N-" means
+    from line N to end of file. The header is always included, so do not
+    specify lines 1 or 2 (except as the first part of a larger group, e.g.
+    "1-10").
+
+    A "pat_spec" is a single pattern (of the form: /pat/ ) optionally followed
+    by one or more column names, and may be preceeded with the reserved word
+    'ne' to negate the meaning (e.g. the pattern should NOT match).
+
+    The order of "Col_spec", "line_spec", and "pat_spec" is significant only
+    to the extent that "col_spec" must preceed "pat_spec" in the command line
+    if both are given.
+
+This utility calls an editor to allow the editing of selected lines and/or
+columns of (or the entire) rdbtable.  Options may be abbreviated.
+
+If none of "col_spec", "line_spec", or "pat_spec" are given then the entire
+rdbtable will be edited. If one or more of the three above options are given
+then the selected subset of the rdbtable will be edited. The option "col_spec"
+identifies which columns of the rdbtable are to be edited, and options
+"line_spec" and "pat_spec" determine which lines will be selected for editing,
+either by direct reference ("line_spec" given "col_spec" not given) or by
+pattern matching ("col_spec" given "line_spec" not given).  If both "line_spec"
+and "pat_spec" are given then only lines within the bounds of "line_spec" will
+be considered for selection by pattern matching.
+
+If "pat_spec" does not include column names then the pattern (any PERL regular
+expression) is matched against each entire row; a row is selected if there is
+a match anywhere in the row.  If column names are included the pattern is
+matched against only the specified columns.  In this case a row is selected if
+a match is found in any specified column. If the "ne" option preceeds the
+"pat_spec" without column names then an entire row is selected if the pattern
+does not match anywhere in the row, and if column names are given then the row
+is selected if the pattern does not match in any specified column.
+
+The form of the file to be edited is either "column" with visible column
+delimiters or "list" format (the default) where the column names are on the
+left and the data is on the right.  The default editor is specified by the
+environment variable EDITOR if set, otherwise the editor '$ED' is used.
+
+In either form of editing the delimiter is a "pipe" symbol (|). Care should
+be taken when editing not to use any "pipe" symbols in the data, or to delete
+any existing pipe symbols in the file. Also, in the case of "list" form, one
+or more blank lines must separate each record.
+
+The rbdtable may be an existing file, or it may be automatically checked out
+from RCS.  In the latter case it will be checked back into RCS after the
+editing is complete.
+
+The default action is that if the rdbtable does not exist an attempt will be
+made to find the rdbtable under RCS (the '-RCS' option may be used to force
+the use of an RCS file).
+
+Afterward, except in the RCS case, the original contents of the rdbtable
+will be left in a file of the same name preceeded with a comma, e.g.
+"sample" will be ",sample".
+
+Concurrency control to prevent silmultaneous wrting of an rdbtable by multiple
+users is provided by the use of a lockfile "rdbtable$LFSUF".
+
+Uses RDB operators: column, ptbl, mktbl, tbl2lst, lst2tbl.
+
+WARNING: If line_spec is given the number of columns must not be changed by
+editing, or if col_spec and/or "pat_spec" is given the number of lines must
+not be changed by editing, otherwise the results may be unpredictable.
+
+$RCS_ID
+EOH
+#    -cK     K will be the visible column delimiter, which may be multi-char.
+#	     Default is ' | ', e.g. a space, a pipe symbol, and a space.
+#    -nbr    Do NOT remove leading and trailing blank space during processing.
+#    -v      Select all except named columns for editing.
+
+$ED = $ENV{'EDITOR'} if $ENV{'EDITOR'} ;		# editor to use
+$HUGE = 2 ** 31 -1 ;
+$SIG{'INT'} = 'cleanup' ;				# in case of INT
+$LST++ ;				# default edit form
+while ( $ARGV[0] =~ /^-/ ){				# Get args
+    $_ = shift ;
+    if( /-c.*/ ){			# column form for editing
+	$LST = 0 ; next ; }
+    if( /^-h.*/ ){ print $HelpInfo ; exit 1 ; }
+    if( /-e(\S)/ ){
+	$ED = 'e'  if $1 =~ /^e/ ;
+	$ED = 'vi' if $1 =~ /^v/ ;
+	next ; }
+    if( /-l(.*)/ ){			# list form, line length
+	$LST++ ;
+	if( $1 =~ /\d+/ ){ $LEN = $& ; }
+	next ; }
+    if( /-n.*/ ){ $NPP++ ; next ; }
+    if( /-R.*/ ){ $RCS++ ; next ; }
+    if( /-x.*/ ){ $XBUG++ ; next ; }
+    die "\nBad arg: $_\n", "For help type \"$0 -help\".\n" ;
+}
+if( $LST && ! $LEN ){		# default from curr term/win size
+    ($x = `stty size`) =~ /\d+\s+(\d+)/ ;
+    $LEN = $1 ; }
+if( $ED eq 'e' ){		# for RAND 'e' editor
+    $LEN-- ; $LEN-- ; }
+if( $LEN < $LMIN ){ $LEN = $LMIN ; }	# safety valve
+$file = shift ;
+if( ! $file ){ die "\nNo rdbtable given\n", "For help type \"$0 -help\".\n" ; }
+if( $RCS || ! -f $file ){
+    $RCS++ ;
+    system "co -l $file" ;
+    if( $? ){ die "\nFile does not exist: $file\n" ; }
+}
+($cmafile = $file)  =~ s-[^/]+$-,$&- ;	# backup file name
+($lockfile = $file) =~ s-$-$LFSUF- ;	# lock file name
+($dbdir = $file)    =~ s-[^/]+$-- ;	# db dir
+$dbdir = "." unless $dbdir ;
+$dbdir =~ s-/$-- ;
+unless( -w $dbdir ){
+    die "No write permission in dir: $dbdir\n" ; }
+unless( &lock ){			# request lock
+    die "File busy: $file, try later.\n" ; }
+
+@COL = @COL ;	# for perl5
+if( @ARGV ){				# line_spec or col_spec
+    &get_spec ;
+}
+$TMP = "$dbdir/$0.t.$$" ;
+$new = "$file.new" ;
+if( ! $NPP ){
+    open( NW, ">$new" ) || &dieu( "\nCan't open $new\n" ) ; }
+if( $LINS ){						# have line_spec
+    &grab_lines ; }
+else{							# NO line_spec
+    if( $LST ){				# list format
+	if( ! $NCOL ){
+	    system( "tbl2lst -e -l$LEN < $file > $TMP" ) ; }
+	else{
+	    system( "column < $file $REV @COL | tbl2lst -e > $TMP" ) ; } }
+    else{				# column case
+	if( ! $NCOL ){
+	    system( "ptbl < $file -e > $TMP" ) ; }
+	else{
+	    system( "column < $file $REV @COL | ptbl -e > $TMP" ) ; } }
+}
+system( "$ED $TMP" ) if ! $XBUG ; # ========================== call the editor
+exit if $NPP ;
+if( $LST ){							# list form
+    open( TM, "lst2tbl -e < $TMP |" ) || &dieu( "\nCan't open pipe\n" ) ; }
+else{								# column form
+    open( TM, "mktbl -e < $TMP |" ) || &dieu( "\nCan't open pipe\n" ) ; }
+if( ! $LINS ){						# NO lines to merge
+    if( ! $NCOL ){		# NO columns to merge
+	print NW $_ while(<TM>) ; }
+    else{			# merge columns back into original RDB table
+	&do_cols ; } }
+else{							# lines to merge
+    &do_lines ; }
+$SIG{'INT'} = 'IGNORE' ;	# safety valve
+unlink( $TMP ) ; unlink( ",$TMP" ) ;
+if( $RCS ){			# RCS case
+    rename( $new, $file ) ;
+    close( NW ) ;
+    system "ci $file" ;
+}
+else{				# normal case
+    if( rename( $file, "$cmafile" ) ){
+	rename( $new, $file ) ; }
+}
+&unlock ;			# unlock, ======================= done
+
+sub get_spec{ 					# get line_spec or col_spec
+    open( FI, $file ) || &dieu( "\nCan't open $file\n" ) ;
+    while(<FI>){
+	$hedfac++ ;
+	if( /^\s*#/ ){ next ; }		# comment 
+	last ; }			# col name line
+    unless( $_ ){ &dieu( "\nNothing in $file\n" ) ; }
+    $place = tell(FI) - length( $_ ) ;
+    $hedfac++ ; $hedfac++ ;	# nr lines in header +1, orig file
+    chop ;
+    @F = split( "\t", $_ ) ;
+    $FCOL = @F ;	# nr of cols in $file
+    for $arg (@ARGV){
+	if( $arg =~ /^(\d+)(-*)(\d*)$/ ){			# line_spec
+	    $LINS++ ;
+	    push( @linstr, $1 ) ;
+	    if( $3 ){
+		push( @linend, $3 ) ; }
+	    else{
+		if( $2 ){
+		    push( @linend, $HUGE ) ; }
+		else{
+		    push( @linend, $1 ) ; } }
+	}
+	elsif( $arg eq 'ne' ){		    			# Neg pat_spec
+	    $PATV = 1 ; }
+	elsif( $arg =~ s|^/(.*)/$|$1| ){		    	# pat_spec
+	    $LINS++ ;
+	    $p_pat = $arg ; }
+	else{							# col_spec
+	    unless( $p_pat ){
+		push( @COL, $arg ) ; }
+	    else{
+		push( @PCOL, $arg ) ; } }
+    }
+    for( $i=0 ; $i <= $#linstr ; $i++ ){		# check line_spec
+	$linstr[$i] = $hedfac if $linstr[$i] < $hedfac ;
+	$linend[$i] = $hedfac if $linend[$i] < $hedfac ; }
+    for( $i=0 ; $i <= $#linstr ; $i++ ){
+	if( ($i > 0 && $linstr[$i] <= $linend[$i-1]) ||
+	    $linstr[$i] >  $linend[$i] ){
+	    &dieu( "\n$0: Bad line_spec\n" ) ; } }
+    $NCOL = @COL ;	# nr of cols to edit
+    for $arg (@COL){			# check selected columns to edit
+	$ok = $i = 0 ;
+	for (@F){
+	    if( $arg eq $_ ){
+		$ok++ ;
+		push( @COLX, $i );
+		last ; }
+	    $i++ ; }
+	if( ! $ok ){ &dieu( "\nCan't find column: $arg\n" ) ; }
+    }
+    for $arg (@PCOL){		# check selected columns for pattern match
+	$ok = $i = 0 ;
+	for (@F){
+	    if( $arg eq $_ ){
+		$ok++ ;
+		push( @PCOLX, $i );
+		last ; }
+	    $i++ ; }
+	if( ! $ok ){ &dieu( "\nCan't find column: $arg\n" ) ; }
+    }
+    seek( FI, 0, 0 ) ;
+}
+sub do_cols {				# column control if NO line_spec
+    seek( FI, $place, 0 ) ;	# just after comments in header, orig file
+    while(<TM>){		# read line fm new file
+	$inhdr = 0 ;
+	if( ! $inhdr && /^\s*#/ ){ print NW $_ ; next ; } # comment 
+	$inhdr = 1 ;
+	chop ;
+	@T = split( /\t/, $_, 9999 );	# col name; <<< chg 9999 ???
+	if( !($f = <FI>)){	# read line fm orig file
+	    warn "WARNING, extra rows in edited file\n" ;
+	    do{ print NW $_, "\n" ;
+		}while(<TM>) ;
+	    last ; }
+
+	chop( $f ) ;
+	@F = split( /\t/, $f, $FCOL );	# col name line, orig file
+	&mrg_row_pr ;
+    }
+    while(<FI>){
+	warn "WARNING, missing row in edited file\n" ;
+	print NW $_ ; }
+}
+sub mrg_row_pr {		# merge new columns into orig row, print
+    $i = 0 ;
+    for (@COLX){		# the column merge 
+	$F[$_] = $T[$i++] ; }
+    while( @T > @COLX ){
+	warn "WARNING: extra column in edited line\n" ;
+	push( @F, pop(@T) ) ; }
+    print NW join( "\t", @F ), "\n" ;
+}
+sub do_lines {					# line control for merge
+    $lln = 0 ;	# line nr of $file
+    $inhdr = 1 ;
+    while(<TM>){
+	$dell = "" ;
+	next if ! /^\.\.>>>(\S*)\s+(\d+)\s+(\d+)/ ;	# control line
+	$dell = $1 ;
+	$linnr = $2 ;
+	$lincnt = $3 ;
+	if( $inhdr ){
+	    while( <TM> ){	# copy orig hdr
+		last unless /^\s*#/ ;		# comment
+		print NW $_ ; } }
+	else{ $_ = <TM> ; }
+	while( $f=<FI> ){	# copy orig file up to $linnr
+	    $lln++ ;
+	    if( $inhdr && $lincnt > 2 ){ # pass comment lines
+		$lincnt-- ;
+		next ; }
+	    $inhdr = 0 ;
+	    last if $lln >= $linnr ;
+	    print NW $f ; }
+	if( ! $NCOL ){				# NO columns to merge
+	    while( --$lincnt && ($f = <FI>) ){
+		$lln++ ; }	# skip lines fm orig file
+	    do {
+		redo if /^\.\.>>>/ ;
+		print NW $_ if $dell ne 'DEL' ; } while(<TM>) ; #copy, del
+	}
+	else{					# columns to merge
+	    $init = 0 ;
+	    do {
+		redo if /^\.\.>>>/ ;
+		chop ;
+		@T = split( /\t/, $_, 9999 ) ;  	# <<< chg 9999 ???
+		if( $init++ && !($f = <FI>)){
+		    warn "WARNING, extra rows in edited file\n" ;
+		    do{ print NW $_, "\n" if ! /^\.\.>>>/ ;
+			}while(<TM>) ;
+		    return ; }
+		$lln++ if $init > 1 ;
+		chop( $f ) ;
+		@F = split( /\t/, $f, $FCOL );
+		&mrg_row_pr ; } while(<TM>) ;
+	}
+    }
+    print NW $_ while(<FI>) ;		# copy rest of orig file
+}
+sub grab_lines {	# get selected lines from $file and write to pipe
+    if( $LST ){					# list form
+	if( ! $NCOL ){
+	    open( TO, "| tbl2lst -e -l$LEN > $TMP" ) ||
+	    &dieu( "\nCan't open pipe\n" ) ; }
+	else{
+	    open( TO, "| column $REV @COL | tbl2lst -e -l$LEN > $TMP" ) ||
+	    &dieu( "\nCan't open pipe\n" ) ; } }
+    else{					# column form
+	if( ! $NCOL ){
+	    open( TO, "| ptbl -e > $TMP" ) || &dieu( "\nCan't open pipe\n" ) ; }
+	else{
+	    open( TO, "| column $REV @COL | ptbl -e > $TMP" ) ||
+	    &dieu( "\nCan't open pipe\n" ) ; } }
+						# print header
+    $lnr = $fhn = 0 ;		# line nr, fixed header nr
+    while(<FI>){
+	$lnr++ ;
+	push( @hdr, $_ ) ; # save header
+	if( /^\s*#/ ){ next ; } 	# comment 
+	last if ++$fhn >= 2 ;
+    }
+    print TO "..>>> 1 $lnr CONTROL LINE, DO NOT TOUCH <<<\n";
+    print TO @hdr ;
+
+    $i = 0 ;
+    if( ! @linstr ){				# only pat_spec
+	while( <FI> ){
+	    $lnr++ ;
+	    @F = split( /\t/, $_, $FCOL ) if @PCOLX ;
+	    &chk_pat ; }
+    }
+    elsif( ! $p_pat ){				# only lin_spec
+	for $start (@linstr){
+	    $fst++ ;
+	    while( <FI> ){
+		$lnr++ ;
+		next if $lnr < $start ;
+		if( $fst ){
+		    $x = $linend[$i] - $start +1 ;
+		    print TO "..>>> $start $x CONTROL LINE, DO NOT TOUCH <<<\n";
+		    $fst = 0 ; }
+		print TO $_ ;
+		last if $lnr >= $linend[$i] ; }
+	    $i++ ;
+	}
+    }
+    else{					# both pat & lin spec
+	for $start (@linstr){
+	    while( <FI> ){
+		$lnr++ ;
+		next if $lnr < $start ;
+		@F = split( /\t/, $_, $FCOL ) if @PCOLX ; # moved for perf.
+		&chk_pat ;
+		last if $lnr >= $linend[$i] ; }
+	    $i++ ;
+	}
+    }
+    &pr_pat if $p_ln_st ;
+    close( TO );
+    seek( FI, 0, 0 ) ;
+}
+sub chk_pat {		# chk curr line for matches. If any, save line in
+						# @p_lns and set $p_ln_st .
+    if( &match ){
+	$p_ln_st = $lnr unless $p_ln_st ;
+	push( @p_lns, $_ ) ; }
+    else{
+	&pr_pat if $p_ln_st ; }
+}
+sub pr_pat {	# print saved pattern lines, with control line, clear $p_ln_st.
+    $xx = @p_lns ;
+    print TO "..>>> $p_ln_st $xx CONTROL LINE, DO NOT TOUCH <<<\n" ;
+    print TO @p_lns ;
+    $p_ln_st = 0 ;
+    @p_lns = () ;
+}
+sub match {	# return 1 if curr line ($_) or cols (@PCOLX) matches, else 0.
+    unless( @PCOLX ){
+	if( /$p_pat/o ){ return 1 - $PATV ; } }
+    else{
+	for $cx (@PCOLX){
+	    if( $F[$cx] =~ /$p_pat/o ){ return 1 - $PATV ; } } }
+    $PATV ;
+}
+sub cleanup {
+    print "INT ... cleaning up.\n" ;
+    unlink( $TMP ) ; unlink( ",$TMP" ) ;
+    if( -f $file ){ unlink( $new ) ; }
+    &unlock ;					# unlock
+    exit ;
+}
+sub lock {	# chk, set lock on the file. ret 1 if lock set; else 0.
+    $umask = umask( 0777 ) ;
+    unless( open( LF, ">$lockfile" )){ return 0 ; }
+    umask( $umask ) ;
+    1 ;
+}
+sub unlock {					# remove lock on the file.
+    unlink $lockfile ;
+}
+sub dieu {					# die with unlock, cleanup
+    unlink( $TMP, ",$TMP" ) ;
+    if( -f $file ){ unlink( $new ) ; }
+    &unlock ;					# unlock
+    die $_[0] ;
+}

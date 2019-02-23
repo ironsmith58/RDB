@@ -1,0 +1,40 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Operators: uniqtbl</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H2>uniqtbl</H2>
+Usage: <CODE>uniqtbl  [options]  column  ...</CODE>
+
+<P>
+     Reads the input rdbtable and compares adjacent rows. The second and
+succeeding copies of repeated rows, considering only the selected
+columns, are removed.  That is, adjacent rows are considered equal if
+the data values in all of the selected columns are equal.  The remaining
+rows are written to the output rdbtable.
+
+<P>
+     Note that repeated rows must be adjacent in order to be found.
+Normally this means that the input rdbtable should be sorted on the
+selected columns for this capability to work properly.
+
+<P>
+Options:
+<UL>
+
+<LI> -D -Diagnostic output. Prints number of rows removed on STDERR.
+
+<LI> -help - Print this help info.
+
+<LI> -v - Inverse option. Selects all columns except those named.
+</UL>
+
+<P>
+     This RDB operator reads an rdbtable from STDIN and writes an
+rdbtable to STDOUT.  Options may be abbreviated.
+
+
+</BODY>

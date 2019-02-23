@@ -1,0 +1,299 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Operators: etbl</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H2>etbl</H2>
+Usage: <CODE>etbl  [options]  rdbtable  [col_spec]  [line_spec]  [pat_spec]</CODE>
+
+<P>
+     This utility calls an editor to allow the editing of selected lines
+and/or columns of (or the entire) rdbtable.  Options may be abbreviated.
+
+<P>
+Options:
+<UL>
+
+<LI> -eNAME - Use the editor 'NAME'.
+
+<LI> -help - Print this help info.
+
+<LI> -l[N] - Use "list" format for editing instead of "column" format. If
+             N is given it is the line length to use (min is 50).
+
+<LI> -npp - No postprocessing after return from the editor. The edited file
+            is saved with a name of the form "etbl.t.nnnn" where "nnnn" is
+            the process number.
+
+<LI> -RCS - Force checkout of the rdbtable from RCS.
+</UL>
+
+
+    A "col_spec" is a list of column names.
+<P>
+    A "line_spec" is a list of line numbers, of increasing value, optionally
+    separated by a dash to specify a range, e.g. "10-20". The form "N-" means
+    from line N to end of file. The header is always included, so do not
+    specify lines 1 or 2 (except as the first part of a larger group, e.g.
+    "1-10").
+ <P>
+    A "pat_spec" is a single pattern (of the form: /pat/ ) optionally followed
+    by one or more column names, and may be preceded with the reserved word
+    'ne' to negate the meaning (e.g. the pattern should NOT match).
+<P>
+    The order of "Col_spec", "line_spec", and "pat_spec" is significant only
+    to the extent that "col_spec" must precede "pat_spec" in the command line
+    if both are given.
+<P>
+     If none of "col_spec", "line_spec", or "pat_spec" are given then
+the entire rdbtable will be edited. If one or more of the three above
+options are given then the selected subset of the rdbtable will be
+edited. The option "col_spec" identifies which columns of the rdbtable
+are to be edited, and options "line_spec" and "pat_spec" determine which
+lines will be selected for editing, either by direct reference
+("line_spec" given "col_spec" not given) or by pattern matching
+("col_spec" given "line_spec" not given).  If both "line_spec" and
+"pat_spec" are given then only lines within the bounds of "line_spec"
+will be considered for selection by pattern matching.
+
+<P>
+     If "pat_spec" does not include column names then the pattern (any
+PERL regular expression) is matched against each entire row; a row is
+selected if there is a match anywhere in the row.  If column names are
+included the pattern is matched against only the specified columns.  In
+this case a row is selected if a match is found in any specified column.
+If the "ne" option precedes the "pat_spec" without column names then an
+entire row is selected if the pattern does not match anywhere in the
+row, and if column names are given then the row is selected if the
+pattern does not match in any specified column.
+
+<P>
+     The form of the file to be edited is either "column" with visible
+column delimiters (the default) or "list" format where the column names
+are on the left and the data is on the right.  The default editor is
+specified by the environment variable EDITOR if set, otherwise the
+editor 'e' is used.
+
+<P>
+     In either form of editing the delimiter is a "pipe" symbol (|).
+Care should be taken when editing not to use any "pipe" symbols in the
+data, or to delete any existing pipe symbols in the file. Also, in the
+case of "list" form, one or more blank lines must separate each record.
+
+<P>
+     The rbdtable may be an existing file, or it may be automatically
+checked out from RCS.  In the latter case it will be checked back into
+RCS after the editing is complete.
+
+<P>
+     The default action is that if the rdbtable does not exist an
+attempt will be made to find the rdbtable under RCS (the '-RCS' option
+may be used to force the use of an RCS file).
+
+<P>
+     Afterward, except in the RCS case, the original contents of the
+rdbtable will be left in a file of the same name preceded with a comma,
+e.g.  "sample" will be ",sample".
+
+<P>
+     Uses RDB operators: column, ptbl, mktbl, tbl2lst, lst2tbl.
+<P>
+     WARNING: If line_spec is given the number of columns must not be
+changed by editing, or if col_spec and/or "pat_spec" is given the number
+of lines must not be changed by editing, otherwise the results may be
+unpredictable.
+
+<P>
+     An example command to edit the rdbtable (named sample) from the
+DATA section would be:
+
+<PRE>
+        etbl  sample
+</PRE>
+
+which would edit the entire rdbtable. The file as it is ready to edit is
+shown in Table 3.  The pipe character '|' must not be removed during the
+editing process, although it may be moved left or right if necessary and
+the spaces around the pipe character may be deleted if desired.
+
+<P>
+     This form of editing is fine if the rdbtable is not large.  If it
+is large then editing only those parts that need changes is faster and
+less error prone. To edit only columns 'NAME', 'COUNT', and 'AMT', the
+command would be:
+
+<PRE>
+        etbl  sample  NAME  COUNT  AMT
+</PRE>
+
+To edit only lines five thru seven the command would be:
+
+<PRE>
+        etbl  sample  5-7
+</PRE>
+
+To edit only lines five thru seven of only columns 'NAME', 'COUNT', and
+'AMT' the command would be:
+
+<PRE>
+        etbl  sample  NAME  COUNT  AMT  5-7
+</PRE>
+
+and the file to edit would look like:
+
+<PRE>
+                                Table 3
+
+              RDBTABLE (SAMPLE) READY TO EDIT, COLUMN FORM
+
+        NAME   | COUNT | TYP  |   AMT | OTHER    |    RIGHT
+        6      |    5N | 4    |    5N | 8        |       8&gt;
+        Bush   |    44 | A    |   133 | Another  |     This
+        Hansen |    44 | A    |    23 | One      |       Is
+        Jones  |    77 | X    |    77 | Here     |       On
+        Perry  |    77 | B    |   244 | And      |      The
+        Hart   |    77 | D    |  1111 | So       |    Right
+        Holmes |    65 | D    |  1111 | On       |     Edge
+
+
+        ..&gt;&gt;&gt; 1 2 CONTROL LINE, DO NOT TOUCH &lt;&lt;&lt;
+        NAME   | COUNT |   AMT
+        6      |    5N |    5N
+
+
+        ..&gt;&gt;&gt; 5 3 CONTROL LINE, DO NOT TOUCH &lt;&lt;&lt;
+        Jones  |    77 |    77
+        Perry  |    77 |   244
+        Hart   |    77 |  1111
+</PRE>
+
+Note that whenever a line_spec is given, control lines (starting with
+'..&gt;&gt;&gt;' are inserted into the file to edit. They must not be modified
+during the editing process.  They are used to reconstruct the rdbtable
+after editing.
+
+<P>
+     If the rdbtable has data fields that are long, i.e. longer than
+convenient to edit in the column form shown above, the 'list' form is
+the preferred method. The usage of line_spec and col_spec are unchanged
+but the form of the file to edit is different. For example consider an
+rdbtable (named sample3) which is shown in Table 4, where the TAB
+
+<PRE>
+                                Table 4
+
+                   RDBTABLE (SAMPLE3) ACTUAL CONTENT
+
+    name&lt;T&gt;datatype&lt;T&gt;agencysrc&lt;T&gt;dbms&lt;T&gt;contact&lt;T&gt;contents&lt;T&gt;notes&lt;R&gt;
+    46&lt;T&gt;15&lt;T&gt;60&lt;T&gt;15&lt;T&gt;21&lt;T&gt;530&lt;T&gt;600&lt;R&gt;
+    ACAS (Air Combat Assessment)&lt;T&gt;BDA&lt;T&gt;Bigplace AFB&lt;T&gt;File&lt;T&gt;Starr&lt;T&gt;Air
+    Combat Assessment BDA data.  Duplicates data under ACAS (Air Combat
+    Assessment) BDA Sorties, diskettes nr 1,2,3.&lt;T&gt;On two 3.5 inch
+    diskettes.&lt;R&gt;
+    ACAS (Air Combat Assessment) BDA Sorties&lt;T&gt;BDA&lt;T&gt;Sawyer AFB&lt;T&gt;File&lt;T&gt;
+    Hobbs/Emerson&lt;T&gt;85 files, 2 per day containing 12 and 24 hour reports.
+    This data is different from that under ACAS (Air Combat Assessment) BDA
+    Data, from diskettes 1,2,3.&lt;T&gt;Received 5/6/91.&lt;R&gt;
+    ATO (Air Tasking Orders) Original&lt;T&gt;ATO&lt;T&gt;HQ USAF, Universal AFB&lt;T&gt;
+    File&lt;T&gt;Marshall&lt;T&gt;Original ATO messages.  Both sets are incomplete.&lt;T&gt;
+    To be joined into single file and edited.  Missing sections not yet
+    ordered.  May be parsed completely, or only for key comments. Much data
+    to be processed.&lt;R&gt;
+    ABC Original&lt;T&gt;ABC&lt;T&gt;HQ USAF, Universal AFB&lt;T&gt;File&lt;T&gt;Marshall&lt;T&gt;Original
+    ATO messages.  Both sets are incomplete.&lt;T&gt;To be joined into single file
+    and edited.  Missing sections not yet ordered. May be parsed completely,
+    or only for key comments. Much data to be processed.&lt;R&gt;
+
+</PRE>
+
+
+characters are represented by '&lt;T&gt;' and the newline characters are
+represented by &lt;R&gt;. This small rdbtable looks very incoherent in raw
+form, and a file of any real size with long data fields is even  more
+so.  The command to edit the file sample3 in 'list' form would be:
+
+<PRE>
+        etbl  -list  sample3
+</PRE>
+
+which would produce a file to edit as shown in Table 5.  Note that each
+section holds information relating to one row in the rdbtable and that
+the first section holds information relating to the header of the
+rdbtable.  Also note that each section is separated by a blank line (it
+could be any number of blank lines).
+
+<P>
+     Each row in a section relates to a single data value.  The pipe
+character '|' must not be removed during the editing process, although
+it may be moved left or right if necessary. Only one pipe character is
+to be in the information relating to one data value, although that
+information may be physically on more than one line in the section if
+the data value is long.
+
+<P>
+     The spaces on both sides of the pipe character as well as the
+spaces around the column names are only for readability; they may be
+moved or even deleted if desired.
+
+<P>
+     The advantage of this form of edit file is that even with very
+large data values most, if not all, of the information from each row of
+an rdbtable will be visible on the screen at once.
+
+<PRE>
+                                Table 5
+
+              RDBTABLE (SAMPLE3) READY TO EDIT, LIST FORM
+
+         name | 46
+     datatype | 15
+    agencysrc | 60
+         dbms | 15
+      contact | 21
+     contents | 530
+        notes | 600
+
+         name | ACAS (Air Combat Assessment)
+     datatype | BDA
+    agencysrc | Bigplace AFB
+         dbms | File
+      contact | Starr
+     contents | Air Combat Assessment BDA data.  Duplicates data under ACAS (Air
+                Combat Assessment) BDA Sorties, diskettes nr 1,2,3.
+        notes | On two 3.5 inch diskettes.
+
+         name | ACAS (Air Combat Assessment) BDA Sorties
+     datatype | BDA
+    agencysrc | Sawyer AFB
+         dbms | File
+      contact | Hobbs/Emerson
+     contents | 85 files, 2 per day containing 12 and 24 hour reports. This data
+                is different from that under ACAS (Air Combat Assessment) BDA
+                Data, from diskettes 1,2,3.
+        notes | Received 5/6/91.
+
+         name | ATO (Air Tasking Orders) Original
+     datatype | ATO
+    agencysrc | HQ USAF, Universal AFB
+         dbms | File
+      contact | Marshall
+     contents | Original ATO messages.  Both sets are incomplete.
+        notes | To be joined into single file and edited.  Missing sections not
+                yet ordered.  May be parsed completely, or only for key
+                comments. Much data to be processed.
+
+         name | ABC Original
+     datatype | ABC
+    agencysrc | HQ USAF, Universal AFB
+         dbms | File
+      contact | Marshall
+     contents | Original ATO messages.  Both sets are incomplete.
+        notes | To be joined into single file and edited.  Missing sections not
+                yet ordered.  May be parsed completely, or only for key
+                comments. Much data to be processed.
+</PRE>
+
+</BODY>

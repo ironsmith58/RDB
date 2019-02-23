@@ -1,0 +1,76 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Operators: sorttbl</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H2>sorttbl</H2>
+Usage: <CODE>sorttbl  [options]  [-r]  column  [[-r]  column]  ...</CODE>
+
+<P>
+     Sorts an rdbtable on one or more columns. Each column may be sorted
+in normal (ascending) or reverse (descending) order. Also a column of
+monthnames (Jan, Apr, ...) in any case letters, may be sorted.
+
+<P>
+     This operator reads an rdbtable via STDIN and writes an rdbtable
+via STDOUT.  Options may be abbreviated. Uses the UNIX 'sort' routine.
+
+<P>
+Options:
+<UL>
+<LI> -c - Check that the rdbtable is sorted on the selected columns.
+
+<LI> -help - Print this help information.
+
+<LI> -r - Reverse order. Applies to the following column only.
+
+<LI> -u - Make rows unique on selected columns.
+</UL>
+
+<P>
+     For example, using the sample data file from the DATA section
+(named sample) in the following command:
+
+<PRE>
+        sorttbl  COUNT  TYP  &lt;  sample
+</PRE>
+
+would produce:
+
+<PRE>
+        NAME    COUNT   TYP     AMT     OTHER   RIGHT
+        6       5N      4       5N      8       8&gt;
+        Bush    44      A       133     Another This
+        Hansen  44      A       23      One     Is
+        Holmes  65      D       1111    On      Edge
+        Perry   77      B       244     And     The
+        Hart    77      D       1111    So      Right
+        Jones   77      X       77      Here    On
+</PRE>
+
+<P>
+     Of course it would look better if it was piped through 'ptbl'.
+The command:
+
+<PRE>
+        sorttbl  COUNT  -r  AMT  &lt;  sample
+</PRE>
+
+would produce:
+
+<PRE>
+        NAME    COUNT   TYP     AMT     OTHER   RIGHT
+        6       5N      4       5N      8       8&gt;
+        Bush    44      A       133     Another This
+        Hansen  44      A       23      One     Is
+        Holmes  65      D       1111    On      Edge
+        Hart    77      D       1111    So      Right
+        Perry   77      B       244     And     The
+        Jones   77      X       77      Here    On
+</PRE>
+
+
+</BODY>

@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Data Access Control</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H1>Data Access Control</H1>
+
+<H2>GENERAL</H2>
+
+<P>
+     Since rdbtables are regular UNIX files, we have so far found no
+need to implement, and have the associated overhead of, general data
+access controls in RDB.  Setting the UNIX permissions on files or
+directory  has proven very useful and effective.  This is another
+example of how the RDB system works "with" UNIX, not in addition to it,
+e.g. not duplicating UNIX functions.
+
+<P>
+     The Revision Control System (RCS) is one of the best configuration
+management tools available and is in use here at RAND for version
+control of many types of files, including rdbtables.  The operator
+'etbl' will automatically check out an rdbtable for editing, and then
+check the new version back into RCS.  Other operators can utilize
+rdbtables that are under RCS control by using commands like:
+
+<PRE>
+        co  -p  table  |  row  ...  |  column  ...  |  ptbl
+</PRE>
+
+<P>
+     Note that this checks out an rdbtable, sends it to 'row', then to
+'column', and finally prints the data with 'ptbl'.  In general, any
+series of commands necessary can be constructed to do a given task even
+if the rdbtables are checked into RCS.
+
+<H2>WRITE CONCURRENCY CONTROL</H2>
+
+<P>
+     When either of the two utility operators 'etbl' or 'dataent' is
+used  (which modify an rdbtable in place) there could be a possibility
+of silmultaneous wrting  of an rdbtable by multiple users. That is, if
+two or more users, on the same computer or perhaps on different
+computers on a network, attempted to modify a given rdbtable with either
+'etbl' or 'dataent' at the same time the rdbtable could become
+corrupted.  To prevent this, write concurrency control is provided by
+the use of a lockfile, and is in effect when either of the two utility
+operators is used.
+
+<P>
+     The name of the lockfile is the name of the rdbtable being modified
+with a suffix of ".LCK". For example an rdbtable named "main.rdb"  would
+have a lockfile named "main.rdb.LCK".  The lockfile is placed in the
+same directory as the rdbtable and  is normally removed after the
+modification process is complete, even if the operation is aborted with
+an INTERRUPT signal (CONTROL-C or &lt;DEL&gt;).  However in the event of an
+emergency such as a computer system crash the lockfile could be left in
+place, preventing the use of 'etbl' or 'dataent' when the computer
+system is again operable.  When an attempt to use either utility
+operator is made an there is and existing lockfile associated with the
+referenced rdbtable an online message is produced and the operator dies.
+In this case simply remove the lockfile with the UNIX command 'rm' and
+proceed.  If an emergency has not occurred appropriate caution should be
+exercised before removing a lockfile, due to the possibility of data
+corruption.
+
+</BODY>

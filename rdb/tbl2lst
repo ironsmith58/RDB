@@ -1,0 +1,68 @@
+#! /usr/bin/perl
+$RCS_ID = '$Id: tbl2lst,v 2.7 1993/03/29 13:34:46 hobbs Exp $' ;
+$0 =~ s-.*/-- ;
+$HelpInfo = <<EOH ;
+
+	    RDB operator: $0
+
+Usage:  $0  [options]
+
+Options:
+    -edit    Edit option. Used by etbl.
+    -help    Print this help info.
+    -lN      Line length of N is to be used.
+
+Converts an rdbtable to "list" format. Long data fields are folded.
+
+This RDB operator reads an rdbtable from STDIN and writes the "list" format
+to STDOUT.  Options may be abbreviated.
+
+$RCS_ID
+EOH
+$: = "\n " ;    # default line break list (white space)
+$LEN = 80 ;	# default line length
+$frm = "format STDOUT = \n^" ;
+while ( $ARGV[0] =~ /^-/ ){			# Get args
+    $_ = shift ;
+    if( /^-e.*/ ){ $EDT++ ; next ; }
+    if( /^-h.*/ ){ print $HelpInfo ; exit 1 ; }
+    if( /^-l(\d+)/ ){ $LEN = $1 ; next ; }
+    die "\nBad arg: $_\n", "For help type \"$0 -help\".\n" ; }
+$lim = $LEN - 16 ;		# max line space for long data fields
+$frm .= '<' x ($lim -1) ;
+$frm .= "\n\$x\n.\n" ;
+eval $frm ;
+
+while( <STDIN> ){  		# read col names
+    if( $EDT && /^\.\.>>>/ ){ print $_ ; next ; } # control line
+    if( /^\s*#/ ){ print ; next ; } 		# comment 
+    last ; }
+chop ;
+@H = split( /\t/, $_ ) ;			# column names
+$z = 13 ;	# default size for printf of list format
+for (@H){ $z = length($_) if length($_) > $z ; } # get longest
+$con1 = "%$z" . "s | " ; # printf control stg
+$HH = $#H ;
+for (1..10){ push( @H, "-DATA-ERROR-" ) ; }
+while(<STDIN>){			# the data & definitions
+    if( $EDT && /^\.\.>>>/ ){ $conl = $_ ; next ; }
+    &conv ; }
+sub conv {			# convert, output the record
+    print "\n" ;		# blank line separates each record
+    print $conl if $conl ; $conl = "" ;
+    chop ;
+    @F = split( /\t/, $_ ) ;
+    for( $i=0 ; $i <= $HH || $i <= $#F ; $i++ ){
+	printf( $con1, $H[$i] ) ;
+	if( length($F[$i]) <= $lim ){
+	    print $F[$i], "\n" ; }
+	else{
+	    $init = 0 ;
+	    $x = $F[$i] ;
+	    do {
+		print "\t\t" if $init++ ;
+		write ;
+	    } while( $x ) ;
+	}
+    }
+}

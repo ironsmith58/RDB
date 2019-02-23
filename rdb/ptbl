@@ -1,0 +1,407 @@
+#! /usr/bin/perl
+$RCS_ID = '$Id: ptbl,v 2.7 1993/03/29 13:34:46 hobbs Exp $';
+$0 =~ s-.*/-- ;
+$BIGLIM = 1000 ;	# data field limit for normal listing
+$HelpInfo = <<EOH ;
+
+	    RDB operator: $0
+
+Usage: $0 [options]
+
+Options:
+    -b0      By default, when a multi-line record of output for each row
+	     is necessary (due to the width of the current window or terminal)
+	     the program will try to fill space at the end of lines that
+	     would otherwise be wasted by moving some columns.  This option
+	     prevents the moving of any columns.
+    -b[N]    This option attempts a "best fit" by rearranging columns (widest
+	     columns first).  If 'N' is given the first N columns
+	     of the first line will not be moved.
+    -Bigf    Handle very large data fields, e.g. over $BIGLIM chars. This option
+	     takes longer but it works for any size data fields.
+    -edit    Edit form of output, used primarily by 'etbl'.
+    -fold    Fold long data fields into multi line data based on field width.
+	     May be used with the '-t' option to limit the field width.  Only a
+	     single line record of output is produced with this option.
+    -help    Print this help info.
+    -iN      Indent size of N spaces on 2nd and later lines of a multi-line
+	     record of output. Default is 4 spaces.
+    -lN      Line length of N chars for output. Default is the width of
+	     the current window or terminal.
+    -pN      Page size in of N lines. Default is the height of the current
+	     window or terminal.  A value of zero '-p0' will turn paging off.
+    -PX[stg] Page headings and settings for printing.  A two line heading is
+	     put onto each page: page number, current date, and an optional
+	     string (stg).  Sets page length (in lines) and line length (in
+	     chars) according to the value of 'X' as follows.
+		    X: P  page: 60  line:   80     (default font size)
+		    X: R  page: 47  line:  116     (rotated default)
+		    X: A  page: 51  line:  125     (rotated 10 point font)
+		    X: 8  page: 63  line:  144     (rotated  8 point font)
+		    X: 6  page: 82  line:  192     (rotated  6 point font)
+		    X: W  page: and line: from current window size.
+	     Other desired page and/or line size options may be set after
+	     this in the option list.
+    -sK      Separator 'K' (which may be multi char) placed between columns.
+	     Default is two spaces.
+    -t[N]    Truncate data to the defined width. If N is given the width
+	     of printed fields will be limited to N chars.
+    -window  List as many columns as possible in single line records that
+	     will fit in the current window or terminal width.
+
+Formats and prints the headers and data.  Column width, data type, and
+justification (for printouts) for the data fields are specified in the
+corresponding fields of the second line of the rdbtable (second header
+line).
+
+The width of each field is specified by a numeric count.
+
+The type of data is 'string', 'numeric', or 'month'.  The types are
+specified by an 'S', 'N', or 'M' respectively.  Default is type string.
+
+Printout justification, 'left', or 'right', is specified by an '<' or '>'
+respectively.  If not specified types 'string' and 'month' will be left
+justified and type 'numeric' will be right justified.
+
+This RDB operator reads an rdbtable from STDIN and writes a formatted report
+on STDOUT. Options may be abbreviated.
+
+$RCS_ID
+EOH
+$sep = "  " ;	# default spacing tween columns
+$ind = 4 ;	# default indent amount for 2nd and later lines
+$BEST = 9999 ;
+$= = 0 ;	# default page size set later
+while ( $ARGV[0] =~ /^-/ ){				# Get args
+    $_ = shift ;
+    if( /-b(\d*)/ ){
+	$BEST = -1 ; $BEST = $1 if $1 ne "" ; next ; }
+    if( /-B.*/ ){ $BIGF++ ; next ; }
+    if( /-e.*/ ){ $EDT++ ; $BEST = 0 ; $LEN = 9999 ;
+	$NOPAG++ ; $sep = ' | ' ; next ; }
+    if( /-f.*/ ){ $FLD++ ; next ; }
+    if( /^-h.*/ ){ print $HelpInfo ; exit 1 ; }
+    if( /-i(\d+)/ ){ $ind = $1 ; next ; }
+    if( /-l(\d+)/ ){ $LEN = $1 ; next ; }
+    if( /-p(\d+)/ ){
+	if( $1 ){ $= = $1 ; } else{ $NOPAG++ ; }
+	next ; }
+    if( /-P(\w)(.*)/ ){
+	$PRT++ ;
+	chop( $DATE = `date` ) ;
+	$PSTG = $2 ;
+	if( $1 eq 'P' ){ $= = 60; $LEN =  80; }
+	if( $1 eq 'R' ){ $= = 47; $LEN = 116; }
+	if( $1 eq 'A' ){ $= = 51; $LEN = 125; }
+	if( $1 eq '8' ){ $= = 63; $LEN = 144; }
+	if( $1 eq '6' ){ $= = 82; $LEN = 192; }
+	next ; }
+    if( /-s(.+)/ ){ $sep = $1 ; next ; }
+    if( /-t(\d*)$/ ){
+	$TRUN = 9999 ; $TRUN = $1 if $1 ; next ; }
+    if( /-w(.*)/ ){ $WIN++ ; $sep = ' ' ; next ; }
+    if( /-x(.*)/ ){ $XBUG++ ; next ; }
+    die "\nBad arg: $_\n", "For help type \"$0 -help\".\n" ; 
+}
+$sepl = length($sep) ;
+if( ! $LEN || (! $= && ! $NOPAG) ){
+    ($_ = `stty size 0<&2`) =~ /^(\d+)\s+(\d+)/ ;
+    if( ! $= && ! $NOPAG ){
+	$= = $1 ;
+	$= = 60 unless $= ; }	# safety valve
+    $LEN = $2 if ! $LEN ;
+    $LEN = 80 unless $LEN ;	# safety valve
+}
+$=-- if ! $PRT && ! $NOPAG ;	# for paging in window
+while(<STDIN>){
+    if( $EDT && /^\.\.>>>/ ){ print $_ ; next ; } # bypass control line if EDT
+    if( /^\s*#/ ){				# comment 
+	push( @savcom, $_ ) if $EDT ;
+	next ; }
+    $lln++ ;	# logical line nr (not control lines or comments)
+    chop ;
+    @F = split( /\t/, $_ );
+    if( $lln <= 2 ){
+	if( $lln == 1 ){
+	    @hdrs = @F ;				# col names
+	    next ; }
+	if( $lln == 2 ){
+	    $i = 0 ;
+	    for $_ (@F){				# col definitions
+		if( /(\d+)/ ){			# column width
+		    push( @wdth, $1 ) ; }
+		else{
+		    push( @wdth, length($_) ) ; }
+		if( /(\S+)/ && $1 =~ /</ ){	# justification
+		    push( @just, "L" ) ; } # left
+		elsif( /(\S+)/ && $1 =~ />/ ){
+		    push( @just, "R" ) ; } # right
+		else{
+		    if( /(\S+)/ && $1 =~ /N/i ){ # numeric type
+			push( @just, "R" ) ; } # right
+		    else {
+			push( @just, "L" ) ; } } # left
+		if( $wdth[$#wdth] > ($LEN - $ind ) ){	# safety valve
+		    $wdth[$#wdth] = $LEN - $ind ; }
+		if( $TRUN && $wdth[$#wdth] > $TRUN ){
+		    $wdth[$#wdth] = $TRUN ; }
+		$_ = '-' x $wdth[$#wdth]  if ! $EDT ;
+		$len = length( $hdrs[$i] ) ;	# adjust @hdrs
+		if( $TRUN && $len > $TRUN ){
+		    $hdrs[$i] = substr( $hdrs[$i], 0, $TRUN ) ;
+		    $len = $TRUN ; }
+		$ldf = length( $_ ) if $EDT ;	# adjust defines
+		$w = $wdth[$#wdth] ;
+		if( $just[$#just] eq "R" ){
+		    $_ = " " x ($w-$ldf) . $_ if $EDT ;
+		    $hdrs[$i] = " " x ($w-$len) . $hdrs[$i] ; }
+		else{
+		    $_ = $_ . " " x ($w-$ldf) if $EDT ;
+		    $hdrs[$i] = $hdrs[$i] . " " x ($w-$len) ; }
+		$i++ ;
+	    }
+	    @dsh = @F ;
+	    &best_fit ;
+	    if( $FLD || $TRUN ){
+		if( $= ){
+		    $tophdr = sprintf( "Page @>>   %s   %s\n\$%%\n\n",
+			$DATE, $PSTG ) . $tophdr if $PRT ;
+		    eval <<EOF ;
+		    format top =
+$tophdr
+.
+EOF
+		}
+		else{  &pr_top ; }
+		if( $FLD ){ &do_fold ; exit ; }
+		else{ &do_trun ; exit ; }
+	    }
+	    &gen_println ;
+	    if( $= == 0 ){ $reclns = 0 ; }	# no paging
+	    elsif( $= < $hdrlns + $reclns ){
+		$= = $hdrlns + $reclns ; }	# safety valve
+	    print @savcom if $EDT ;	# comment lines, for edit opt
+	    &pr_top;
+	    next ;
+	}
+    }
+    &println ;
+}
+sub pr_top {					# print header
+    $%++ ;
+    $- = $= - $hdrlns if $= ;
+    if( $PRT ){
+	$- -= 2 ;
+	printf( "Page %3d   %s   %s\n\n",
+	$%, $DATE, $PSTG ) ; }
+    print $tophdr, "\n" ;
+}
+sub gen_println {			# gen sub to print data line
+    $pcode = <<EOF ;
+sub println {
+    if( \$- < \$reclns ){ print "\\f" ; &pr_top ; }
+EOF
+    $k = $lnl = $x = 0 ;
+    for (@I){
+	$i = $I[$k] ;
+	$w = $wdth[$i] ;
+	$aa = 0 ;
+	$aa = $sepl if $x != 0 ;
+	$aa += $w ;			# additional length
+	if( ($lnl + $aa) > $LEN ){  # too long, new line
+	    $pf[$i] .= "\\n" ;
+	    $pf[$i] .= " " x $ind ;
+	    $kk = $k ;
+	    $lnl = $ind + $w ;
+	    $x = 0 ; }
+	else{ $lnl += $aa ; }
+	$pf[$i] .= $sep if $x++ > 0 ;
+	$pf[$i] .= "%" ;
+	if( $just[$i] eq "L" ){
+	    $pf[$i] .= "-" ; }
+	$pf[$i] .= "$w" . "s" ;
+	$pstg1 .= $pf[$i] ;		# print fields
+	$pstg2 .= ", \$F[$i]" ;		# data values
+	$k++ ;
+    }
+    $pstg1 .= "\\n" if ! $EDT ;
+    $x = "\"$pstg1\"" . $pstg2 ;
+    if( $BIGF ){ $pcode .=
+	"    if( ! \$BIGF || ! &chk_big ){ printf( $x ) ; }\n" ; }
+    else{
+	$pcode .= "    printf( $x ) ;\n" ; }
+    if( $EDT ){
+	$pcode .= <<EOM ;
+    for( \$m = \@hdrs; \$m < \@F ; \$m++ ){
+	print \"$sep\", \$F[\$m] ;
+	warn \"DATA-ERROR at line \$.\\n" ; }
+    print "\\n" ;
+EOM
+    }
+    $pcode .= "    \$- -= \$reclns ; \n}\n" ;
+    print $pcode if $XBUG ;	# debug
+    eval $pcode ;
+    print $@ if $@ ;
+}
+sub best_fit {			# chk best fit and build @I & $tophdr
+    $lnl = $LEN ;	# curr line length
+    for( $i=0; $i <= $#hdrs; $i++ ){ push(@c,$i) ; } # temp ary
+    $word = $k = 0 ;
+    loop: while( 1 ){
+	for( $j=0; $j <= $#c; ){
+	    if( $BEST && $BEST <= $k++ ){
+	        &chk_any ; }
+	    $i = $c[$j] ;
+	    $w = $wdth[$i] ;
+	    if( $word++ > 0 ){
+		if( $sepl <= $lnl ){
+		    $lnl -= $sepl ;
+		    $tophdr .= $sep ;
+		    $toptmp .= $sep ; }
+		else{
+		    &bf_newl ;  	# new line ...
+		    return if $FLD ;	# limit to one line
+		    last loop if $WIN ;	# limit to one line
+		    next loop ; } }
+	    if( $w <= $lnl ){
+		push(@I,$i) ;			# add to @I
+		splice(@c,$j,1) ;		# rm from @c
+		$lnl -= $w ;
+		$tophdr .= $hdrs[$i] ;		# build $tophdr
+		$toptmp .= $dsh[$i] ;
+		next loop ; }
+	    if( $BEST && &chk_any ){ $word = 0 ; redo ; }
+	    &bf_newl ;
+	    return if $FLD ;			# linit to one line
+	    last loop if $WIN ;			# linit to one line
+	    next loop ;
+	}
+	last ;
+    }
+    if( ! $WIN ){
+	$tophdr =~ s/\s+$// ;
+	$tophdr .= "\n" . $toptmp ;
+	$hdrlns = $tophdr =~ s/\n/\n/g +1 ;
+	$reclns = $hdrlns/2 ; }
+    else{
+	$tophdr =~ s/\s+$// ;
+	# $tophdr .= "\n" . $toptmp ;
+	$tophdr .= "\n" . $toptmp if $toptmp ;
+	$hdrlns = 2 ;
+	$reclns = 1 ; }
+}
+sub bf_newl {				# new line ...
+    $lnl = $LEN - $ind ;
+    $word = 0 ;
+    $tophdr =~ s/\s*$// ;
+    $tophdr .= "\n" . $toptmp ;
+    $toptmp = "" ;
+    return if $FLD || $WIN ;		# linit to one line
+    $tophdr .= "\n" . " " x $ind ;
+    $toptmp = " " x $ind ;
+}
+sub chk_any { # find biggest field that will fit in $lnl; Ret 1 if any
+	      # found, and $j will hold index in @c corr. to biggest field.
+    $any = $v = 0 ;
+    for( $jj=0; $jj <= $#c; $jj++ ){
+	$i = $c[$jj] ;
+	$w = $wdth[$i] ;
+	if( $w <= $lnl ){
+	    $any++ ;
+	    if( $w > $v ){
+		$v = $w ;
+		$j = $jj ; }
+	}
+    }
+    $any ;
+}
+sub do_trun {				# process truncated data fields
+    &rdy_pic ;
+    for( $j=0; $j <=$#I ; $j++ ){
+        $i= $I[$j] ;
+	if( $j != 0 ){
+	    $f_val .= ", " ; }
+	$f_val .= "\$F[$i]" ;
+    }
+    $fcode = <<EOF ;
+    format f_rec =
+$f_pic
+$f_val
+.
+    \$~ = f_rec ;
+    while(<STDIN>){
+	\$anydata++ ;
+	chop ;
+	\@F = split( /\\t/, \$_ );
+	write ;
+    }
+    write if ! \$anydata ;
+EOF
+    print $tophdr, $fcode, "\n" if $XBUG ; # debug
+    eval $fcode ;
+    print $@ if $@ ;
+}
+sub do_fold {				# process folded data fields
+    &rdy_pic ;
+    for( $j=0; $j <=$#I ; $j++ ){
+        $i= $I[$j] ;
+	if( $j != 0 ){
+	    $f_val .= ", " ;
+	    $f_exp .= " || " ; }
+	$f_val .= "\$tex$i" ;
+	$f_exp .= "\$tex$i" ;
+	$f_mov .= "\$tex$i = \$F[$i] ; " ;
+    }
+    $fcode = <<EOF ;
+    format f_rec =
+$f_pic
+$f_val
+.
+    \$~ = f_rec ;
+    while(<STDIN>){
+	\$anydata++ ;
+	chop ;
+	\@F = split( /\\t/, \$_ );
+	$f_mov
+	while( $f_exp ){ write ; }
+    }
+    write if ! \$anydata ;
+EOF
+    print $fcode, "\n" if $XBUG ; # debug
+    eval $fcode ;
+    print $@ if $@ ;
+}
+sub rdy_pic {		# build $f_pic ...
+    $k = $x = 0 ;
+    for (@I){
+	$i = $I[$k++] ;
+	$w = $wdth[$i] -1 ;
+	$f_pic .= $sep if $x++ > 0 ;
+	if( $FLD ){
+	    $f_pic .= '^' ; }
+	else{
+	    $f_pic .= '@' ; }
+	if( $just[$i] eq 'R' ){
+	    $f_pic .= '>' x $w ; }
+	else{
+	    $f_pic .= '<' x $w ; }
+    }
+}
+sub chk_big {			# chk for data fields that are too big
+    for $i (@I){
+	if( length($F[$i]) > $BIGLIM ){
+	    &print_big ;
+	    return 1 ; } }
+    0 ;
+}
+sub print_big {			# print line containing big data field(s)
+    for $i (@I){
+	if( length($F[$i]) > $BIGLIM ){
+	    $x = $pf[$i] ;
+	    if( $x =~ s-\\n-- ){ print "\n" ; }
+	    if( $x =~ /[ |]+/ ){ print $& ; }
+	    print $F[$i] ; }
+	else{
+	    printf( "$pf[$i]", $F[$i] ) ; } }
+    print "\n" ;
+}

@@ -1,0 +1,335 @@
+#! /usr/bin/perl
+$RCS_ID = '$Id: rdbi,v 1.17 1997/08/08 10:00:56 hobbs Exp $' ;
+$0 =~ s-.*/-- ;
+$PROM = "I> " ;	# prompt
+$DPAGER = "less -iCMs" ;# default pager, after ENV
+$popt = "-w" ;		# default ptbl options
+$suopt = "-cuu" ;	# default summ options
+$tmp1 = "$0.1.$$" ;	# temp file
+$tmp2 = "$0.2.$$" ;	# temp file
+$HelpInfo = <<EOH ;
+
+			    RDB Interactive
+
+Usage:  $0  [options]  rdbtable
+
+Options:
+    -help    Print this help info.
+    -pp      No paging at start.
+
+An interactive analysis tool for RDB data tables (rdbtables). This is
+especially useful for rdbtables that were made from spreadsheet data.
+
+Uses nine RDB modules: column, etbl, ptbl, reporttbl, row, sorttbl, tbl2lst,
+summ, valid.
+
+Specific module options are available using the '-help' option of individual
+modules.
+
+RDB Interface Commands c,d,r,s,S,t without options show current settings.
+
+$RCS_ID
+EOH
+$info = <<EOI ;
+	    RDB Interface Commands (to be followed by the <RET> key)
+q		quit
+h		help info
+d  [FILE]	FILE is rdbtable. show current info if FILE not given
+dd		reset to last rdbtable from d cmd
+p  [opts]	print in column format (ptbl). opts stay till canceled
+		    with '--'.  default opt is "$popt".
+P  [yes/no]	pager operation, default yes, from environment or "$DPAGER"
+l		print in list format (tbl2lst)
+f  [opts]	formatted print using template file from t cmd (reporttbl) 
+t  FILE		FILE is template file, for f cmd
+c  COL ...	use columns COL ... [or col nrs  3 2 4 ...] (column) 
+s  COL ...	sort on columns COL ... [or col nrs  3 2 4 ...] (sorttbl) 
+r  EXPR		select based on EXPR (row) 
+su [opts]	summary info (summ). opts stay till canceled with '--'.
+		    default opt is "$suopt".
+e		edit rdbtable (etbl)
+v		check rdbtable (valid)
+S  FILE		save current rdbtable to FILE
+SS FILE		save output from next p,l,f, or su command to FILE
+b               use back (previous) rdbtable
+C               clear screen
+H [N]		show last N commands, default all. cmd 'HH [N] uses pager.
+!xx		execute command xx from history, like: !N, !-N, !!, !pattern
+ ucmd		(space) UNIX command
+EOI
+
+$|++ ;
+$PAGER = $ENV{'PAGER'} ; $PAGER = $DPAGER unless $PAGER ;
+$pagc = "| $PAGER" ;	# default pager operation
+while ( $ARGV[0] =~ /^-/ ) {				# Get args
+    $_ = shift ;
+    if( /^-h.*/ ){ print $HelpInfo, "\n", $info ; exit 1 ; }
+    if( /^-p.*/ ){ $pagc = "" ; next ; }	# no init paging
+    die "\nBad arg: $_\n", "For help type \"$0 -help\".\n" ; }
+&set_tex ;		# ready text strings
+print $welc0 ;		# greeting
+print $welc1 ;
+if( $ARGV[0] ){
+    $_ = shift ; &c_d ; }	# init datafile 
+else{
+    while( 1 ){
+	print "Datafile (rdbtbl)? " ;
+	$_ = <> ;
+	next if /^\s*$/ ;
+	s/^h// and do { print $info ; next ; } ;	# help
+	exit if /^q/ ;
+	&c_d ;
+	last unless $dferr ; } }
+print $PROM ;
+main: while(<>){
+    next if /^\s$/ ;				# skip blank line
+    s/^!// and do { &c_Hx ; redo ; } ;		# xeq history cmd
+    push @hist, $_ unless /^H/ ;		# save cmd history
+    s/^ // and do { system "/bin/csh -c \"$_\"" ; next ; } ;# UNIX command
+    s/^b// and do { &c_b ; next ; } ;		# back buffer
+    s/^C// and do { system "clear" ; next ; } ;	# clear screen
+    s/^c// and do { &c_c ; next ; } ;		# column ...
+    s/^d\s// and do { &c_d ; next ; } ;		# datafile name
+    /^dd/ and do { $_ = $datafile ; &c_d ; next ; } ;# datafile reset
+    s/^e// and do { &c_e ; next ; } ;		# edit 
+    s/^f// and do { &c_f ; next ; } ;		# formated print, reporttbl
+    s/^H// and do { &c_H ; next ; } ;		# history list
+    s/^h// and do { print $info ; next ; } ;	# help
+    s/^l// and do { &c_l ; next ; } ;		# print, list format
+    s/^P// and do { &c_P ; next ; } ;		# pager
+    s/^p// and do { &c_p ; next ; } ;		# print, ptbl
+    s/^r// and do { &c_r ; next ; } ;		# row ...
+    s/^SS/f/ and do { &c_P ; next ; } ;		# save next print output
+    s/^S// and do { &c_S ; next ; } ;		# save file
+    s/^s\s// and do { &c_s ; next ; } ;		# sort ...
+    s/^su// and do { &c_su ; next ; } ;		# summ ...
+    s/^t// and do { &c_t ; next ; } ;		# template file
+    /^q/ and last ;				# done
+    s/^v// and do { &c_v ; next ; } ;		# valid check
+    /^x/ and do { $xbug = $xbug ? 0 : 1 ; next ; } ; # debug
+    print "what? $_\n" ;			# unknown
+} continue{ print $PROM ; }
+unlink $tmp1, $tmp2 ;
+
+sub c_b {					# use previous (back) buffer
+    return unless $bbuf ;
+    my($x, $d) = ($rcur, $datadiff) ;
+    $rcur = $bbuf ;
+    $datadiff = $bdif ;
+    $bbuf = $x ;	# prev buf
+    $bdif = $d ;	# prev diff fl
+    $wcur = $wcur eq $tmp1 ? $tmp2 : $tmp1 if $rcur eq $wcur ;	# safety
+    @hdr = () ; # @exps = @cols = @sols = @hdr = () ;
+    $_ = "" ;
+    &c_d ;
+}
+sub c_c {					# column
+    unless( /^\s*$/ ){		# cols given
+	@cols = split ;
+	for (@cols){
+	    next if /^-/ ;	# column option
+	    $_ = &cc_col($_) ; }
+	print "\tcolumn @cols \n" ;
+	if( $badcol ){
+	    @cols = () ; }
+	else{
+	    system "column < $rcur @cols > $wcur" ;
+	    $bbuf = $rcur ;	# back buffer
+	    $bdif = $datadiff ; # back diff fl
+	    $datadiff++ ;
+	    $rcur = $wcur ;
+	    $wcur = $wcur eq $tmp1 ? $tmp2 : $tmp1 ;
+	    @hdr = `valid -t $rcur` ;
+	    &set_cols ; } }
+    else{
+	print "Columns: @cols\n" ; }# cols given
+}
+sub cc_col {				# chk, conv column, nr, name. ret name
+    local $_ = $_[0] ;
+    $badcol = 0 ;
+    if( /^\d+$/ ){	# col nr
+	if( $_ > $mx_col ){
+	    $badcol++ ;
+	    print "Bad column nr: $_\n" ; }
+	else{
+	    $_ = $col_bynr{$_} ; } }
+    unless( $col_name{$_} or $badcol ){
+	print "Bad column name: $_\n" ;
+	$badcol++ ; }
+    $_ ;
+}
+sub c_d {					# use datafile
+    $dferr = 0 ;
+    if( /\S+/ ){
+	$datafile = $& ;
+	unless( -r $datafile ){
+	    print "Can't read: $datafile\n" ;
+	    $dferr++ ;
+	    return ; }
+	@exps = @cols = @sols = @hdr = () ;
+	$bbuf = $rcur ;	    # back buffer
+	$bdif = $datadiff ; # back diff fl
+	$datadiff = 0 ;
+	$rcur = $datafile ;
+	$wcur = $wcur eq $tmp1 ? $tmp2 : $tmp1 ; 
+	$wcur = $wcur eq $tmp1 ? $tmp2 : $tmp1 if $rcur eq $wcur ; } # safety
+    print "curr datafile is: $rcur\n" ;
+    print "DF: $datafile BB: $bbuf Wcur: $wcur \n" if $xbug ;
+    @hdr = `valid -t $rcur` unless @hdr ;
+    print "\n", @hdr ;
+    &set_cols ;
+}
+sub c_e { 					# edit curr rdbtbl
+    chop ;
+    $eopt = $_ unless $_ =~ /^\s*$/ ;
+    $eopt = "" if $eopt =~ /--/ ;
+    system "etbl $eopt $rcur" ;
+    @hdr = () ;		# force d cmd to get chgs
+}
+sub set_cols {					# set column info
+    for (@hdr){
+	next unless /(\d+)\s+(\S+)/ ;
+	$col_name{$2}++ ;	# col name
+	$col_bynr{$1} = $2 ;	# col name by nr
+	$mx_col = $1 ; }	# max col nr
+}
+sub c_f {					# formated print, reporttbl
+    unless( $tmpl ){
+	print "No template file.\n" unless $tmpl ;
+	return ; }
+    chop ;
+    system "reporttbl < $rcur $_ $tmpl $pagc" ;
+    $pagc = $pagcv if $pagc =~ /^>/ ;
+}
+sub c_H {					# show history list
+    my( @t, $p, $i, $j ) ;
+    $p = "| $PAGER" if s/^H// ;	# use pager if 'HH N' cmd
+    if( /\d+/ ){
+	$j = @hist - $_ if $_ <= @hist ; }
+    for( $i=$j ; $i < @hist ; $i++ ){
+	push @t, sprintf "%4d %s", $i, $hist[$i] ; }
+    if( $p ){
+	open TT, $p or die "Can't open pipe.\n" ;
+	print TT @t ;
+	close TT ; }
+    else{
+	print @t ; }
+}
+sub c_Hx {					# execute history cmd
+    my $x ;
+    chop ;
+    if( /^[\d-!]+$/ ){	# only nr or !
+	$x = $& ;
+	$x = -1 if $x eq '!' ; }
+    else{		# srch backwards for pattern
+	for( $x=-1 ; $x >= -@hist ; $x-- ){
+	    last if $hist[$x] =~ /^$_/ ; }
+	if( $x < -@hist ){
+	    print "pattern not found: $_\n" ;
+	    return ; } }
+    $_ = $hist[$x] ;
+    print $_ ;	# cmd as it could have been typed
+}
+sub c_l {					# print, list format
+    system "tbl2lst < $rcur $pagc" ;
+    $pagc = $pagcv if $pagc =~ /^>/ ;
+}
+sub c_P {					# pager/print save operation
+    /^\s*[yp]/i and do { $pagc = "| $PAGER" ; return ; } ;	# yes
+    /^\s*f\s+(\S+)/ and do {
+	$pagcv = $pagc ;
+	$pagc = "> $1" ;
+	print "Saving next p,l,f, or su cmd to file $1\n" ;
+	return ; } ;						# sav_file
+    $pagc = "" ;						# no
+}
+sub c_p {					# print, ptbl
+    chop ;
+    $popt = $_ unless $_ =~ /^\s*$/ ;
+    $popt = "" if $popt =~ /--/ ;
+    system "ptbl < $rcur $popt $pagc" ;
+    $pagc = $pagcv if $pagc =~ /^>/ ;
+}
+sub c_r {					# row
+    my $skip ;
+    unless( /^\s*$/ ){		# expr given
+	@exps = split ;
+	for $_ (@exps){
+	    next if /^-/ ;	# option
+	    if( $skip ){
+		$skip-- ; }
+	    else{
+		next if /and/ or /or/ ;
+		$_ = &cc_col($_) ;
+		$skip = 2 ; } }
+	print "\trow @exps \n" ;
+	if( $badcol ){
+	    @exps = () ; }
+	else{
+	    system "row < $rcur @exps > $wcur" ;
+	    $bbuf = $rcur ;	# back buffer
+	    $bdif = $datadiff ; # back diff fl
+	    $datadiff++ ;
+	    $rcur = $wcur ;
+	    $wcur = $wcur eq $tmp1 ? $tmp2 : $tmp1 ; } }
+    else{
+	print "Row Expression: @exps\n" ; }# Expr given
+}
+sub c_S {					# save file
+    if( /^\s*$/ ){	# show
+	print "save file: $savf\n" ; }
+    else{		# save file
+	if( $datadiff ){
+	    ($savf) = /(\S+)/ ;
+	    link $rcur, $savf ;
+	    unlink $rcur ;
+	    $rcur = $savf ; }
+	else{
+	    print "No difference from: $datafile\n" ; } }
+}
+sub c_s {					# sort by given columns
+    unless( /^\s*$/ ){		# cols given
+	@sols = split ;
+	for (@sols){
+	    next if /^-/ ;	# sort option
+	    $_ = &cc_col($_) ; }
+	print "\tsort @sols \n" ;
+	if( $badcol ){
+	    @sols = () ; }
+	else{
+	    if( $sols[0] eq '-c' ){	# spec case
+		system "sorttbl < $rcur @sols" ; } # no new rdbtbl
+	    else{
+		system "sorttbl < $rcur @sols > $wcur" ;
+		$bbuf = $rcur ;	# back buffer
+		$bdif = $datadiff ; # back diff fl
+		$datadiff++ ;
+		$rcur = $wcur ;
+		$wcur = $wcur eq $tmp1 ? $tmp2 : $tmp1 ; } } }
+    else{
+	print "Sort Columns: @sols\n" ; }# curr sort cols
+}
+sub c_su {					# summ 
+    chop ;
+    $suopt = $_ unless $_ =~ /^\s*$/ ;
+    $suopt = "" if $suopt =~ /--/ ;
+    system "summ < $rcur $suopt $pagc" ;
+    $pagc = $pagcv if $pagc =~ /^>/ ; # reset pager
+}
+sub c_t {					# template file
+    if( /^\s*$/ ){	# show
+	print "template file: $tmpl\n" ; }
+    else{		# save file
+	($tmpl) = /(\S+)/ ;
+	unless( -r $tmpl ){
+	    print "No file: $tmpl\n" ;
+	    $tmpl = "" ; } }
+}
+sub c_v {					# check valid
+    chop ;
+    system "valid $_ $rcur" ;
+}
+sub set_tex {
+    $welc0 = "\n\t\tWelcome to RDB Interactive.\n" ;
+    $welc1 = "\nFor help enter \"h\"; to quit enter \"q\"\n\n";
+}

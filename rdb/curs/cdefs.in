@@ -1,0 +1,163 @@
+# BEGIN unsupported
+# delay_output ms
+# del_term
+# gettmode
+# mvprintw
+# mvscanw
+# mvwprintw
+# mvwscanw
+# newterm
+# printw
+# putp
+# scanw
+# setterm
+# setupterm
+# set_term
+# set_curterm
+# tgetent
+# tgetflag
+# tgetnum
+# tgetstr
+# tgoto
+# tparm
+# tputs
+# traceoff
+# traceon
+# vidattr
+# vidputs
+# END unsupported
+
+# BEGIN extensions
+getLINES RETURN resint
+getCOLS RETURN resint
+edit str curpos y x xlen rep RETURN str resint
+wedit win str curpos y x xlen rep RETURN str resint
+show str curpos y x xlen rep
+wshow win str curpos y x xlen rep
+editq chint
+editreset
+editl chint
+editlreset
+editr chint
+editrreset
+ctermlog str
+quitcterm FLUSH
+# END extensions
+
+# BEGIN extra's
+getchR RETURN resint
+wgetchR win RETURN resint
+clrreg top bot
+wclrreg win top bot
+# END extra's
+
+# BEGIN curses
+addch ch
+addstr str
+attroff attrs
+attron attrs
+attrset attrs
+baudrate RETURN resint
+beep
+box win vert hor
+cbreak
+clear
+clearok win flag
+clrtobot
+clrtoeol
+delch
+deleteln
+delwin delw
+doupdate
+draino ms
+echo
+endwin FLUSH
+erase
+erasechar RETURN resint
+fixterm
+flash
+flushinp
+getch RETURN resint
+getstr &str RETURN str
+getyx win &y &x RETURN y x
+has_ic RETURN resint
+has_il RETURN resint
+idlok win flag
+inch RETURN resint
+initscr
+insch ch
+insertln
+intrflush win flag
+keypad win flag
+killchar RETURN resint
+leaveok win flag
+longname RETURN resstr
+meta win flag RETURN resint
+move y x
+mvaddch y x ch
+mvaddstr y x str
+mvcur oldrow oldcol newrow newcol
+mvdelch y x
+mvgetch y x RETURN resint
+mvgetstr y x &str RETURN str
+mvinch y x RETURN resint
+mvinsch y x ch
+mvwaddch win y x ch
+mvwaddstr win y x str
+mvwdelch win y x
+mvwgetch win y x RETURN resint
+mvwgetstr win y x &str RETURN str
+mvwin win y x
+mvwinch win y x RETURN resint
+mvwinsch win y x ch
+napms ms
+newpad num_lines num_cols RETURN reswin
+newwin num_lines num_cols y x RETURN reswin
+nl
+nocbreak
+nodelay win flag
+noecho
+nonl
+noraw
+overlay win1 win2
+overwrite win1 win2
+pnoutrefresh pad pminrow pmincol sminrow smincol smaxrow smaxcol
+prefresh pad pminrow pmincol sminrow smincol smaxrow smaxcol
+raw
+refresh
+resetterm
+resetty
+saveterm
+savetty
+scroll win
+scrollok win flag
+setscrreg top bot
+standend
+standout
+subwin win num_lines num_cols y x RETURN reswin
+touchwin win
+typeahead fd
+unctrl chint RETURN resstr
+waddch win ch
+waddstr win str
+wattroff win attrs
+wattron win attrs
+wattrset win attrs
+wclear win
+wclrtobot win
+wclrtoeol win
+wdelch win
+wdeleteln win
+werase win
+wgetch win RETURN resint
+wgetstr win &str RETURN str
+winch win RETURN resint
+winsch win ch
+winsertln win
+wmove win y x
+wnoutrefresh win
+wrefresh win
+wsetscrreg win top bot
+wstandend win
+wstandout win
+# END curses

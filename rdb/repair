@@ -1,0 +1,176 @@
+#! /usr/bin/perl
+$RCS_ID = '$Id: repair,v 2.9 1995/02/10 11:36:33 hobbs Exp $';
+$SUF = ".rdb" ;
+$0 =~ s-.*/-- ;
+$HelpInfo = <<EOH ;
+
+	    RDB Utility: $0
+
+Usage:  $0  [options]  file  ...
+
+Options:
+    -blank   Remove leading and trailing blank chars from data fields.
+	     This option takes a little longer but is recommended.
+    -dN      Deletes the first N lines of each input file.  Used to
+	     remove extra lines before the actual header.
+    -exist   The file(s) are existing rdbtables. Instead of generating
+	     new definition lines the current ones are used as starting
+	     values.
+    -Exist   Like '-exist' except the data width check is not done and
+	     the definition lines are not modified.
+    -help    Print this help info.
+    -kWORD   The first line of each input file containing "WORD" will be
+	     considered the column name line. Works after the '-d' option,
+	     if given.
+    -quiet   No normal output messages.
+    -rFILE   Use the template file 'FILE' to replace the existing header.
+    -sXXX    Suffix on new files of 'XXX' instead of '$SUF'.
+    -tFILE   Use the template file 'FILE' for header information instead of
+	     scaning the input files.
+
+Attempts to repair candidate RDB datafiles, e.g. files that (might) have been
+ported from a Mac or PC spreadsheet program, and so has TAB separated fields,
+but that do not yet have valid rdbtable structure.  Generates column definition
+lines. The width of all data values in each column is checked and the maximum
+value is used to set the width in the column definition line for that column.
+
+Also works with existing rdbtables, use the '-exist' or '-Exist' options.
+
+Adds fields as necessary to rows (null), or to header (DUM1, DUM2, ...)
+to make the table structure valid.
+
+The new rdbtables will be in the current directory (even if the input files
+are not) and will have the (last) suffix changed to '$SUF' by default.
+If such a change would result in a new filename being the same as the input
+filename the new suffix will be added to the filename to prevent file damage.
+
+Options may be abbreviated. Uses the RDB operator: headchg.
+
+$RCS_ID
+EOH
+
+while ( $ARGV[0] =~ /^-/ ) {				# Get args
+    $_ = shift ;
+    if( /-b.*/ ){ $BLRM++ ; next ; }
+    if( /-d(\d+)/ ){ $SKIP = $1 ; next ; }
+    if( /-e.*/ ){ $EXIST++ ; next ; }
+    if( /-E.*/ ){ $EXIST++ ; $EXISTNC++ ; next ; }
+    if( /^-h.*/ ){ print $HelpInfo ; exit 1 ; }
+    if( /-k(\S+)/ ){ $KEY = $1 ; next ; }
+    if( /-q.*/ ){ $QUIET++ ; next ; }
+    if( /-r(\S+)/ ){ $TPL = $1 ; $REP++ ; &do_tpl ; next ; }
+    if( /-s(\S+)/ ){ $SUF = $1 ; next ; }
+    if( /-t(\S+)/ ){ $TPL = $1 ; &do_tpl ; next ; }
+    die "\nBad arg: $_\n", "For help type \"$0 -help\".\n" ; 
+}
+if( ! @ARGV ){ die "\nNo files given ...\n" , "For help type \"$0 -help\".\n";}
+while( $file = shift ){
+    ($newf = $file) =~ s-.*/-- ;	# rm path part, if any
+    $newf =~ s/\.[^\.]*$// if $newf !~ /$SUF$/ ; # rm last suffix
+    $newf = $newf . $SUF ;
+    open( IN, $file ) || die "\nCan't open file: $file\n" ;
+    open( OT, ">$newf" ) || die "\nCan't open file: $newf\n" ;
+    warn "in: $file  out: $newf\n" unless $QUIET ;
+    $subseqs = "" ;
+    $skip = $SKIP ;
+    $key = $KEY ;
+    $dum = "DUM1" ;
+    @DEFL = "" if ! $TPL ;
+    while(<IN>){				# chk header, first pass
+        if ( $skip ){
+	    $skip-- ; next ; }		# skip lines before header
+	if( $key && ! /$key/o ){
+	    next ; }
+	$key = "" ;
+	if( ! $subseqs && ($EXIST || $REP) && /^\s*#/ ){	# comment
+	    print OT $_ unless $REP ; next ; }
+	chop ;
+	# unless( $subseqs++ ){ # old perl4 code
+	unless( $subseqs ){ # for perl5 ...
+	    $subseqs++ ; # for perl5 ...
+	    if( $REP || $EXIST ){	# col define line
+		chop( $dln = <IN> ) ; }
+	    $place = tell ;	# for second pass
+	    last if $TPL ;
+	    @HDR = split( /\t/, $_ ) ;
+	    $nrf = @HDR ;	# nr fields
+	    if( $EXISTNC ){	# use define line from existing RDB table
+		@DEFL = split( /\t/, $dln ) ;
+		next ; }
+	    $i = 0 ;
+	    for (@HDR){
+		if( /^\s*$/ ){
+		    $_ = $dum++ ; }
+		$DEFL[$i++] = length($_) ;
+		s/\W/_/g ; }
+	    next ;
+	}
+	&do_chk ;
+    }
+    print OT @COM if @COM ;			# comments
+    print OT join( "\t", @HDR ), "\n" ;	# col names
+    print OT join( "\t", @DEFL ), "\n" ;	# col defines
+    seek( IN, $place, 0 ) ;
+    while(<IN>){			# second pass
+	chop ;
+	&do_wrk ; }
+    close( IN ) ;
+    close( OT ) ;
+}
+sub do_chk {	# chk nr fields; len & type of each, set in $DEFL, @DEFT.
+    @F = split( /\t/, $_ ) ;
+    if( @F > $nrf ){		# too many fields in line
+	$x = @F - $nrf ;
+	$nrf += $x ;
+	while( $x-- ){
+	    push( @HDR, $dum++ ) ;
+	    if( $DEFL[$#HDR] < 4 ){
+		$DEFL[$#HDR] = 4 ; }
+	}
+    }
+    for( $i=0 ; $i <= $#HDR ; $i++ ){	# chk length of fields
+	last if $i > $#F ;
+	if( $BLRM ){
+	    $F[$i] =~ s/^ +// ;		# rm leading space
+	    $F[$i] =~ s/ +$// ; }	# rm trailing space
+	if( ! $EXISTNC && (length($F[$i]) > $DEFL[$i]) ){
+	    $DEFL[$i] = length($F[$i]) ; }
+	$DEFT[$i] = 'S' ;
+    }
+}
+sub do_wrk {			# write out the data lines, chk nr of fields
+    $x = tr/\t/\t/ +1 ;
+    if( $nrf != $x ){
+	$y = $nrf - $x ;
+	if( $y > 0 ){		# add null fields
+	    $_ .= "\t" x $y ; }
+	else{			# strip null filds
+	    $y = -$y ;
+	    while( $y-- ){
+		chop ; }
+	}
+    }
+    &rm_bl if $BLRM ;		# rm extra blanks
+    print OT $_, "\n" ;
+}
+sub rm_bl {		    # rm leading & trailing blank chars from fields
+    @F = split( /\t/, $_, $nrf ) ;
+    for (@F){
+	s/^ +// ;	# rm leading space
+	s/ +$// ; }	# rm trailing space
+    $_ = join( "\t", @F ) ;
+}
+sub do_tpl {		# use headchg to read TPL file; set @HDR, @DEFL, $nrf.
+    @a = `headchg -gen -q $TPL` ;
+    @COM = () ;
+    while( $_ = shift(@a) ){
+	if( /^\s*#/ ){			# comment
+	    push( @COM, $_ ) ;
+	    next ; }
+	chop $_ ;  chop $a[0] ;
+	@HDR  = split( /\t/, $_ ) ; 
+	@DEFL = split( /\t/, $a[0] ) ; 
+	$nrf = @HDR ;
+	last ;
+    }
+}

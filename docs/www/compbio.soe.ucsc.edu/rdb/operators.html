@@ -1,0 +1,89 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Operators</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H1>Operators</H1>
+<P>
+     The operators are separate program modules that each perform a
+unique function on the data.  They can be grouped into data movers,
+report generators, and utilities.
+
+<P>
+     The data movers are operators that extract or rearrange the data in
+some way.  They each read an rdbtable via STDIN and write a rdbtable via
+STDOUT and so are frequently connected using the UNIX pipe function to
+form a larger task.  Each operator in such a "pipeline" style of
+operation gets its input from the output of the previous operator in the
+"pipeline".  The data movers include:
+
+<UL>
+<LI> <A HREF="operators-row.html">
+        row - Selects rows based on arbitrary expressions.</A>
+<LI> <A HREF="operators-column.html">
+        column - Selects columns by name, outputs columns in listed
+        order.</A>
+<LI> <A HREF="operators-search.html">
+        search - Selects rows based on a multi-column key of a sorted
+        or indexed rdbtable.</A>
+<LI> <A HREF="operators-sorttbl.html">
+        sorttbl - Sorts a datafile by one or more columns.</A>
+<LI> <A HREF="operators-jointbl.html">
+        jointbl - Natural or "Master/Detail" join of two rdbtables.</A>
+<LI> <A HREF="operators-mergetbl.html">
+        mergetbl - Merges two like rdbtables.</A>
+<LI> <A HREF="operators-compute.html">
+        compute - Computes an arbitrary expression using column names.</A>
+<LI> <A HREF="operators-uniqtbl.html">
+        uniqtbl - Makes an rdbtable unique on specified columns.</A>
+<LI> <A HREF="operators-subtotal.html">
+        subtotal - Lists subtotals of specified columns.</A>
+</UL>
+
+<P>
+     The report generators each read an rdbtable via STDIN and produce a
+report on STDOUT, so when they are in a "pipeline" of operators they
+will be the operator at the end.  The report generators are:
+
+<UL>
+<LI> <A HREF="operators-ptbl.html">
+        ptbl - Quick and easy printing of output formatted from
+        information in the header.</A>
+<LI> <A HREF="operators-reporttbl.html">
+        reporttbl - Best form of output, with definable format.</A>
+<LI> <A HREF="operators-summ.html">
+        summ - Summary/Statistical information about data values in an
+        rdbtable.</A>
+</UL>
+
+
+<P>
+     The utilities are used for manipulating the structure and content
+of rdbtables and are generally used as separate tasks.  The utilities
+are:
+
+
+<UL>
+<LI> <A HREF="operators-headchg.html">
+        headchg - Generates and replaces (or removes) the header of an
+        rdbtable.</A>
+<LI> <A HREF="operators-dataent.html">
+        dataent - An interactive capability for entering data into an
+        rdbtable.</A>
+<LI> <A HREF="operators-etbl.html">
+         etbl - Uses an editor to allow modifications to an rdbtable.</A>
+<LI> <A HREF="operators-valid.html">
+        valid - Verifies the structure of an rdbtable.</A>
+<LI> <A HREF="operators-repair.html">
+        repair - Attempts to repair candidate RDB datafiles.</A>
+</UL>
+
+<P>
+     All operators take a '-help' option to show details of operation
+online.  Following is a sub-section for each operator, in alphabetic
+order.
+
+</BODY>

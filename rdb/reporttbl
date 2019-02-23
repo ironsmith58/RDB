@@ -1,0 +1,261 @@
+#! /usr/bin/perl
+$RCS_ID = '$Id: reporttbl,v 2.8 1995/02/09 15:56:52 hobbs Exp $';
+$0 =~ s-.*/-- ;
+$HelpInfo = <<EOH ;
+
+	    RDB operator: $0
+
+Usage:  $0  [options]  file.frm
+
+Options:
+    -help    Print this help info.
+    -pN      Page size in of N lines. Default is 60 lines.
+	     A value of zero '-p0' will turn paging off (in this case the
+	     form file should not contain a header).
+
+Formats and prints an arbitrary style report, as specified in the file
+"file.frm". An (optional) page header may be specified.
+
+The format of "file.frm" is similar to a PERL format, except that column
+names are used (without separating commas) instead of variable names. Note 
+that this file should not contain any TAB characters.  There are also some
+special names which can be used to have helpful identifing data inserted
+into the output (usually the page header).
+
+    Special Name	Substituted in output
+    -----------		----------------------------------------------------
+    _pgnr_ 		current page number
+    _date_ 		current date
+    _rcnr_              current record number (row number)
+    _`cmd`_ 		the output of the command 'cmd'
+    _TYPE_cd_  		the column documentation for column 'TYPE'
+    _tbld_  		the table documentation (header comments), all lines
+    _tbld_3.7_ 		the table documentation, lines 3 thru 7. If either
+			first or second number is missing it means line 1
+			or the last line of the header, respectively.
+Example:
+
+format top =
+Page @>,		The Page Header     @<<<<<<<<<<<<<<<<<<<<<<<<<<<
+   _pgnr_ 					_date_
+.
+format =
+    Name:   @<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<   Type:  @>>>>>>>>>>>>>>>
+		NAME					   TYPE
+    Amt:    @<<<<<<<<<<<<<<   Comment:  ^<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+		AMT			   COMMENT
+.
+Note that the picture field for "Comment:" starts with a '^' char so it
+will be repeated as necessary in order to print the entire data value.
+
+This RDB operator reads an rdbtable from STDIN and writes a formatted report
+on STDOUT. Options may be abbreviated.
+
+$RCS_ID
+EOH
+$: = "\n " ;	# default line break list (white space)
+$frm = "frm01" ;
+$tmp = "tmp01" ;
+$tmpf = "/tmp/rep.tmp.$$" ;	# tmp file for tops case
+$lln = 0 ; # for -w chk ...
+while ( $ARGV[0] =~ /^-/ ) {				# Get args
+    $_ = shift ;
+    if( /-p(\d+)/ ){ $= = $1 ; next ; }	# page size
+    if( /^-h.*/ ){ print $HelpInfo ; exit 1 ; }
+    if( /-x.*/ ){ $XBUG++ ; next ; }	# debug
+    die "\nBad arg: $_\n", "For help type \"$0 -help\".\n" ; 
+}
+die "\nNo form file given.\n", "For help type \"$0 -help\".\n" if ! @ARGV ;
+open( FRM, $ARGV[0] ) || die "Can't open $ARGV[0]\n" ;
+
+while(<STDIN>){						# pass header
+    chop ;
+    if( /^\s*#/ ){				# comment 
+	$_ = "  " if length($_) < 2 ;	# fudge
+	s/^..// ;
+	push( @tdoc, $_ ) ; }		# save tbl doc (hdr comments)
+    elsif( ++$lln == 1 ){
+	@H = split( /\t/, $_ ) ; }	# save column names
+    else{
+	@cdoc = split( /\t/, $_ ) ;	# save column doc
+	for (@cdoc){
+	    s/\S+\s*// ; }	# remove definitions
+	last ; }
+}
+while(<FRM>){						# pass form file
+    if( /^\s*format/i ){	# format line
+	$inform++ ;
+	$intop++ if /TOP/i ;			# TOP format
+	if( /^\s*format\s+=/i ){	# main format
+	    s/=/$frm =/ ;	# chg format name
+	    $pmin = 0 ;			# init $pmin
+	    $xcode = "\$~ = $frm ;\n" ;	# init $xcode
+	    $xcode .= "    \$- = 0 if \$- < \$pmin ;\n" ;
+	    $frm++ ; }
+	push( @frm, $_ ) ;
+	next ; }
+    if( ! $inform ){		# not in a format section
+	$inform++ ;
+	push( @frm, "format $frm =\n" ) ;
+	$xcode .= "    \$~ = $frm ;\n" ;
+	$frm++ ; }
+    if( /^\./ ){		# end format line
+	if( ! $longfld ){
+	    $xcode .= "    write ;" ; }
+	&fin_tops if $tops ;	# finish up special top hdr
+	$inform = $intop = $tops = 0 ; }
+    push( @frm, $_ ) ;		# add line to @frm
+    $pmin++ if $inform ;
+    next if ! /[@\^]/ ;		# no pic fields in line
+    $picln = $_ ;	# save pic line
+    @p = split(' ') ;
+    $_ = <FRM> ;		# column names
+    @c = split(' ') ;
+    for( $i=0; $i < @c ; $i++ ){	# chk for cmds with spaces
+	if( $c[$i] =~ /^[_\`]/ && $c[$i] !~ /[_\`]$/ ){
+	    for( $x = "", $j=$i; $j < @c ; $j++ ){
+		if( $c[$j] =~ /[_\`]$/ ){
+		    $x .= $c[$j] . " ";
+		    splice( @c, $i, $j-$i, $x ) ;
+		    last ; }
+		else{
+		    $x .= $c[$j] . " "; }
+	    }
+	}
+    }
+    &do_tops if $intop && $picln =~ /\^/ ;	# chk special top case 
+    &do_picln ;
+}		# <FRM>
+$" = "" ;
+$fcode = <<EOF ;	# build main code, inc the generated form lines
+@frm
+while(<STDIN>){
+    chop ;
+    \@F = split( /\\t/, \$_ );
+    $xcode}
+EOF
+# print $fcode, "\n" if $XBUG ;	# debug
+print $fcode if $XBUG ;	# debug (chg for perl5)
+eval $fcode ;		# do the work
+print $@ if $@ ;	# chk for errors
+
+sub do_picln {		# handle a pic line. uses @p, sets @frm, $xcode.
+    $vvln = $exp = $init = $longfld = $notfst = $vln = "" ;
+    for $pic (@p){		# process words in pic line
+	next if $pic !~ /^[@\^]/ ;
+	if( $notfst ne "" ){
+	    $vln .= ", " ; }
+	$notfst = $notfst +1 ; # was $notfst++ ... chg for perl5
+	# warn "..loop pt2 do_picln\n" ; #<<<<<<<<<<<<<<<<<<<<<
+	if( $pic =~ /^@/ ){			# fixed field  "@<<<< ..."
+	    $vln .= &convar( shift( @c )) ;	# variable names on line
+	    next ; }
+	$longfld++ ;			# long field  "^<<<< ..."
+	$vln .= "\$$tmp" ;	# variable line for @frm
+	if( $init++ ){
+	    $vvln .= ", " ;
+	    $exp .= " || " ; }
+	$vvln .= "\$$tmp" ;	# 2nd variable line for @frm
+	$v = &convar( shift( @c )) ;
+	$xcode .= "    \$$tmp = $v ;\n" ;	# move to scalar
+	$exp .= "\$$tmp" ;			# expression
+	$tmp++ ;
+    }
+    push( @frm, $vln . "\n" ) ;			# add to @frm
+    return if ! $longfld ;	# long field stuff below ...
+    push( @frm, ".\nformat $frm =\n" ) ;
+    @a = split( //, $picln ) ;
+    $savf = 0 ;
+    for ( @a ){			# gen new line with only long fields
+	if( ! /\^/ && ! $savf ){
+	    $_ = ' ' ;
+	    next ; }
+	$savf++ ;
+	next if m-[\^<|>]- ;
+	$savf = 0 ;
+	$_ = ' ' ; }
+    $picln = join( '', @a ) ;
+    push( @frm, $picln, "\n" ) ;
+    push( @frm, $vvln, "\n.\n" ) ;
+    $inform = 0 ;
+    $xcode .= <<EOF ;		# finish $xcode
+    write ;
+    \$~ = $frm ;
+    while( $exp ){ write ; }
+EOF
+    $frm++ ;		# chg name for next form
+    $longfld = 0 ;
+}
+sub convar {		# convert column name (input) into internal variable
+    local( $arg ) = $_[0] ;
+    local( $f ) ;
+    return '$%' if $arg eq '_pgnr_' ;
+    if( $arg eq '_date_' ){
+	$date = `date` unless $date ;	# only if necessary
+	return '$date' ; }
+    return '++$rcnr' if $arg eq '_rcnr_' ;
+    if( $arg =~ /^_\`(.+)\`_ *$/ ){	# cmd to execute once:  _`cmd`_
+	eval "\$$tmp = `$1`" ;
+	$cmd = "\$$tmp" ;
+	$tmp++ ;
+	return $cmd ; }		# need dbl quotes ???
+    return "$arg" if $arg =~ /^\`.+\`$/ ;	# cmd to execute repeatedly
+    for( $f=0 ; $f < @H ; $f++ ){
+	if( $arg eq $H[$f] ){		# col name translation
+	    $arg = '$F[' . $f . ']' ;
+	    return $arg ; }
+    }
+    if( $arg =~ /^_tbld_/ ){			# tbl doc:  _tbld_ ...
+	$x1 = 0 ;
+	$x2 = $#tdoc ;
+	if( $arg =~ /(\d*)\.(\d*)_$/ ){
+	    $x1 = $1 -1 if $1 ;
+	    $x2 = $2 -1 if $2 ; }
+	$xhdr = join( " ", @tdoc[$x1 .. $x2] ) ;
+	return '$xhdr' ;
+	$xhdr = $xhdr ; # for -w ...............
+    }
+    if( $arg =~ /^_(\S+)_cd_$/ ){		# col doc:  _NAME_cd_
+	$arg = $1 ;
+	for( $f=0 ; $f < @H ; $f++ ){
+	    if( $arg eq $H[$f] ){
+		$arg = '$cdoc[' . $f . ']' ; # col doc
+		return $arg ; }
+	}
+    }
+    warn "Warning, Bad name: $arg\n" ;
+    return "_BAD_" ;
+}
+sub do_tops {				# handle special TOP format case
+    $tops++ ; $intop = 0 ;
+    $xx = ( pop( @frm )) ;
+    @frmsav = @frm ;
+    $xcodesav = $xcode ; $xcode = "" ;
+
+    @frm = ( "\nformat $frm =\n", $xx ) ;
+    $pmin = 0 ;			# init $pmin
+    $xcode = "\$~ = $frm ;\n" ;	# init $xcode
+    $xcode .= "    \$- = 0 if \$- < \$pmin ;\n" ;
+    $frm++ ;
+}
+sub fin_tops {				# finish up special top format case
+    push( @frm, ".\n" ) ;
+    $" = "" ;
+    $fcode = <<EOF ;	# build special top form
+    @frm
+    $xcode
+EOF
+    print $fcode, "\n", "." x 55, "\n" if $XBUG ;	# debug
+    open( TMP, ">$tmpf" ) || die "Can't open write tmp file: $tmpf\n" ;
+    select( TMP ) ;
+    eval $fcode ;		# do the work
+    close( TMP ) ;
+    select( STDOUT ) ;
+    print $@ if $@ ;	# chk for errors
+    open( TMP, $tmpf ) || die "Can't open read tmp file: $tmp\n" ;
+    @tmpx = <TMP> ;	# the whole file
+    close( TMP ) ; unlink $tmpf ;
+    @frm = @frmsav ;
+    $xcode = $xcodesav ;
+    push( @frm, @tmpx ) ;
+}

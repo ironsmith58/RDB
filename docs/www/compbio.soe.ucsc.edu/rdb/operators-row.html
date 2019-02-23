@@ -1,0 +1,135 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<!-- $Id: $ -->
+<HTML>
+<HEAD>
+<TITLE>RDB: Operators: row</TITLE>
+<HEAD>
+</HTML>
+<BODY BGCOLOR=FFFFF>
+<H2>row</H2>
+Usage: <CODE>row  [options]  expression</CODE>
+<P>
+Options:
+<UL>
+
+<LI> -help - Print this help information.
+
+<LI> -fXXX - The expression is in the file 'XXX', instead of on the
+             command line. The advantage in this case is that no quoting
+             of chars that might be special to the UNIX shell is necessary.
+</UL>
+
+<P>
+     Selects rows from the input rdbtable based on an arbitrary
+expression using column names.  Characters that are special to the UNIX
+shell must be quoted.
+
+<P>
+     Logical constructors 'or' and 'and' may be used; as well as 'null'
+to indicate empty data values.  Comparison operators may be of the form:
+gt, ge, lt, le, eq, ne, mat, nmat.  The first six are the usual
+operators, E.g 'name eq Hobbs' or 'COUNT gt 100'.  The last two stand
+for 'match' and 'non-match' and are used for pattern matching. They are
+exactally the same as using the PERL operators '=~' or '!~'
+respectively, except that pattern matching can be specified easier in
+expressions, as in:
+
+<PRE>
+        NAME  mat   /[Hh]obbs/ 		&lt;&lt;&lt; First letter either case
+        NAME  mat   /hobbs/i		&lt;&lt;&lt; any combination of case
+        NAME  nmat  /[aeiou]/i		&lt;&lt;&lt; names without vowels
+</PRE>
+
+where 'NAME' and 'COUNT' are column names, of course.  A warning message
+is produced on STDERR if either of 'mat' or 'nmat' is used with a
+numeric type column, but the execution continues.  It does not check the
+'=~' or '!~' forms.
+
+<P>
+     All of the Comparison operators and Logical constructors are
+reserved and should not be used as column names (they are all lower case
+and four characters or less).
+
+<P>
+     Since column names and reserved words are parsed by the program, do
+not put the entire expression in a single pair of quotes as that will
+prevent the parsing.  Also note that column names and reserved words
+need to be surrounded by blank spaces if they are not individually
+quoted.  For example either form below is fine:
+
+<PRE>
+        row   NAME    eq   "L Brown"  &lt;  sample
+        row  "NAME"  "eq"  "L Brown"  &lt;  sample
+</PRE>
+
+but do not use this form:
+
+<PRE>
+        row  "NAME  eq  L Brown"  &lt;  sample
+</PRE>
+
+<P>
+     This operator reads an rdbtable via STDIN and writes an rdbtable
+via STDOUT.  Options may be abbreviated.
+
+<P>
+     As an example using the sample rdbtable from the DATA section
+(named sample), to select rows that have the NAME column equal to
+'Hansen'  the command would be:
+
+<PRE>
+        row  NAME  eq  Hansen  &lt;  sample
+</PRE>
+
+which would produce:
+
+<PRE>
+        NAME    COUNT   TYP     AMT     OTHER   RIGHT
+        6       5N      4       5N      8       8&gt;
+        Hansen  44      A       23      One     Is
+</PRE>
+
+to select rows that have the TYP column equal to 'A' or that have the
+AMT column greater than 1000 the command would be:
+
+<PRE>
+        row  TYP  eq  A  or  AMT  gt  1000  &lt;  sample
+</PRE>
+
+producing:
+
+<PRE>
+        NAME    COUNT   TYP     AMT     OTHER   RIGHT
+        6       5N      4       5N      8       8&gt;
+        Bush    44      A       133     Another This
+        Hansen  44      A       23      One     Is
+        Hart    77      D       1111    So      Right
+        Holmes  65      D       1111    On      Edge
+</PRE>
+
+<P>
+     Note that in some rare cases there could be a column name that is
+identical to a data value specified in an expression using another
+column name that might cause a problem (this actually happened).  For
+example if two column names are 'N' and 'T', and column 'N' has a data
+value of 'T', to select all rows where column 'N' is equal to 'T' the
+normal command would be:
+
+<PRE>
+    row  &lt;  table  N  eq  T
+</PRE>
+
+Unfortunately the 'T' in the expression gets translated to 'column name
+T', not used as 'data value T'. That is, the expression askes for all
+rows where the data value of column N equals the data value of column T,
+legal, but not what was wanted.  There is a simple workaround however.
+The 'T' in the expression can be escaped with a backslash to prevent the
+translation to a column name, as in the revised command:
+
+<PRE>
+    row  &lt;  table  N  eq  '\T'
+</PRE>
+
+Thus either meaning can be specified, as desired.
+
+</BODY>
